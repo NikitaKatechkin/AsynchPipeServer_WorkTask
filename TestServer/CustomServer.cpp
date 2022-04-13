@@ -528,12 +528,13 @@ CustomServer::CustomServer(const std::wstring& l_pipe_path,
         InitConnect(index);
     }
 
-    m_process_loop_th = new std::thread(&CustomServer::ProcessLoopV2, this);
+    //m_process_loop_th = new std::thread(&CustomServer::ProcessLoopV2, this);
 }
 
 CustomServer::~CustomServer()
 {
-    m_process_loop_th->join();
+    //m_process_loop_th->join();
+    Stop();
 
     delete[] m_state;
     delete[] m_event;
@@ -1083,9 +1084,9 @@ void CustomServer::ProcessLoop()
 
 void CustomServer::ProcessLoopV2()
 {
-    bool exit_tmp_flag = false;
+    m_is_server_running = true;
 
-    while (!exit_tmp_flag)
+    while (m_is_server_running == true)
     {
         DWORD index = 0;
 
@@ -1106,20 +1107,24 @@ void CustomServer::ProcessLoopV2()
             PendedConnect(index);
 
             break;
-        case SERVER_STATE::READING_SIGNALED:
-            InitRead(index);
-            //exit_tmp_flag = true;
+        case SERVER_STATE::CONNECTED:
+            ResetEvent(m_overlapped[index].hEvent);
+
             break;
         case SERVER_STATE::READING_PENDED:
             PendedRead(index);
             //exit_tmp_flag = true;
             break;
-        case SERVER_STATE::WRITING_SIGNALED:
-            InitWrite(index);
-
+        case SERVER_STATE::READING_SIGNALED:
+            InitRead(index);
+            //exit_tmp_flag = true;
             break;
         case SERVER_STATE::WRITING_PENDED:
             PendedWrite(index);
+
+            break;
+        case SERVER_STATE::WRITING_SIGNALED:
+            InitWrite(index);
 
             break;
         default:
@@ -1128,17 +1133,70 @@ void CustomServer::ProcessLoopV2()
     }
 }
 
+void CustomServer::Run()
+{
+    m_process_loop_th = new std::thread(&CustomServer::ProcessLoopV2, this);
+    m_process_loop_th->detach();
+}
+
+void CustomServer::Stop()
+{
+    //m_is_server_running = false;
+    //m_process_loop_th->join();
+
+    bool is_all_pipe_handled = true;
+    while (true)
+    {
+        is_all_pipe_handled = true;
+        for (DWORD index = 0; index < m_capacity; index++)
+        {
+            if (!((m_state[index] == SERVER_STATE::NON_INITIALIZED) ||
+                (m_state[index] == SERVER_STATE::DISCONNECTED) ||
+                (m_state[index] == SERVER_STATE::CONNECTED) ||
+                (m_state[index] == SERVER_STATE::CONNECTION_PENDED)))
+            {
+                is_all_pipe_handled = false;
+                break;
+            }
+        }
+
+        if (is_all_pipe_handled == true)
+        {
+            m_is_server_running = false;
+            break;
+        }
+    }
+}
+
 void CustomServer::AdoptedRead(const DWORD& l_index)
 {
+    while (m_state[l_index] != SERVER_STATE::CONNECTED)
+    {
+        //EMPTY WAIT LOOP;
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        //std::cout << "HERE" << std::endl;
+    }
+
     m_state[l_index] = SERVER_STATE::READING_SIGNALED;
+
+    SetEvent(m_overlapped[l_index].hEvent);
 }
 
 void CustomServer::AdoptedWrite(const DWORD& l_index, const std::wstring& l_message)
 {
+    while (m_state[l_index] != SERVER_STATE::CONNECTED)
+    {
+        //EMPTY WAIT LOOP;
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        //std::cout << "HERE" << std::endl;
+    }
+
     StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
                   l_message.c_str());
 
     m_state[l_index] = SERVER_STATE::WRITING_SIGNALED;
+
+    SetEvent(m_overlapped[l_index].hEvent);
 }
 
 //EXPERIMENTAL PART
@@ -1192,6 +1250,7 @@ void CustomServer::InitConnect(const DWORD& l_index)
         case ERROR_PIPE_CONNECTED:
             //PIPE ALREADY CONNECTED -> TRY TO SET AN EVENT
 
+            /**
             if (SetEvent(m_overlapped[l_index].hEvent) == TRUE)
             {
                 //EVENT SUCCESSFULY SET -> SWITCH TO CONNECTED STATE
@@ -1210,6 +1269,8 @@ void CustomServer::InitConnect(const DWORD& l_index)
                 std::cout << "Failed to set an uevent with index = " << l_index;
                 std::cout << " with GLE = " << GetLastError() << "." << std::endl;
             }
+            **/
+            m_state[l_index] = SERVER_STATE::CONNECTED;
 
             break;
         default:

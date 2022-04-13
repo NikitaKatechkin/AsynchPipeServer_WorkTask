@@ -94,6 +94,9 @@ public:
 
 	void ProcessLoopV2();
 
+	void Run();
+	void Stop();
+
 	void AdoptedRead(const DWORD& l_index);
 	void AdoptedWrite(const DWORD& l_index, const std::wstring& l_message);
 private:
@@ -111,15 +114,15 @@ private:
 	std::thread* m_process_loop_th = nullptr;
 
 	DWORD m_capacity = 0;
-
 	std::wstring m_pipe_path;
 
+	bool m_is_server_running = false;
+
 	SERVER_STATE* m_state = nullptr; // = SERVER_STATE::NON_INITIALIZED;
-
-	HANDLE* m_event = nullptr;
-
 	HANDLE* m_pipe = nullptr;
 	OVERLAPPED* m_overlapped = NULL;
+	HANDLE* m_event = nullptr;
+
 
 	TCHAR** m_request_buffers = nullptr;
 	DWORD* m_bytes_read = nullptr;

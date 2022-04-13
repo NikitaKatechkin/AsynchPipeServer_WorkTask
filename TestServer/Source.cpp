@@ -7,35 +7,17 @@ int main()
 {
     CustomServer test_server(DEFAULT_PIPE_NAME);
 
-    /**
-    while (!test_server.Connect(0))
-    {
-
-    }
-    test_server.Connect(0);
-    **/
-    
     //std::thread loop_th(&CustomServer::ProcessLoopV2, test_server);
+
+    test_server.Run();
 
     test_server.AdoptedRead(0);
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
 
     test_server.AdoptedWrite(0, L"Hello, world)))");
 
-    //loop_th.join();
-
-    /**
-    std::wstring buffer;
-    if (test_server.Recieve(0, buffer))
-    {
-        std::wcout << buffer << std::endl;
-    }
-
-    std::cout << test_server.Send(0, L"hwgburfb") << std::endl;
-
-    test_server.Disconnect(0);
-    **/
+    test_server.Stop();
 
     system("pause");
     return 0;
