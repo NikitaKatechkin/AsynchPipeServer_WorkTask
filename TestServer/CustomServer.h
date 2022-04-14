@@ -98,8 +98,16 @@ public:
 	void stop();
 
 	//To make bool
-	bool adoptedRead(const DWORD l_index);
-	bool adoptedWrite(const DWORD l_index, const std::wstring& l_message);
+	bool adoptedRead(const DWORD l_index, 
+					 void(*l_read_callback)(std::wstring* l_buffer, DWORD* l_bytes_read,
+						  const std::wstring& l_src_buffer, const DWORD l_src_bytes) = nullptr,
+					 std::wstring* l_buffer = nullptr,
+					 DWORD* l_bytes_read = nullptr);
+
+	bool adoptedWrite(const DWORD l_index, const std::wstring& l_message,
+					  void(*l_write_callback)(DWORD* l_bytes_written, 
+											  const DWORD l_src_bytes) = nullptr,
+					  DWORD* l_bytes_written = nullptr);
 private:
 	bool catchEvent(DWORD l_index);
 
@@ -140,12 +148,13 @@ private:
 
 	//CALLBACKS PART
 
-	void(*read_callback)(std::wstring& l_buffer, DWORD& l_bytes_read) = nullptr;
-	std::wstring m_read_callback_buffer;
-	DWORD m_callback_bytes_read = 0;
+	void(*read_callback)(std::wstring* l_dst_buffer, DWORD* l_dst_bytes_read,
+						 const std::wstring& l_src_buffer, const DWORD l_src_bytes) = nullptr;
+	std::wstring* m_read_callback_dst_buffer = nullptr;
+	DWORD* m_callback_dst_bytes_read = nullptr;
 
-	void(*write_callback)(std::wstring& l_buffer, DWORD& l_bytes_written) = nullptr;
-	std::wstring m_write_callback_buffer;
-	DWORD m_callback_bytes_written = 0;
+	void(*write_callback)(DWORD* l_bytes_written, const DWORD l_src_bytes) = nullptr;
+	//std::wstring* m_write_callback_buffer = nullptr;
+	DWORD* m_callback_dst_bytes_written = nullptr;
 
 };

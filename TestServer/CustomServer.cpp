@@ -1168,7 +1168,11 @@ void CustomServer::stop()
     }
 }
 
-bool CustomServer::adoptedRead(const DWORD l_index)
+bool CustomServer::adoptedRead(const DWORD l_index,
+                        void(*l_read_callback)(std::wstring* l_dst_buffer, DWORD* l_dst_bytes_read,
+                             const std::wstring& l_src_buffer, const DWORD l_src_bytes),
+                        std::wstring* l_buffer,
+                        DWORD* l_bytes_read)
 {
     if (m_state[l_index] != SERVER_STATE::CONNECTED)
     {
@@ -1180,6 +1184,13 @@ bool CustomServer::adoptedRead(const DWORD l_index)
         return false;
     }
 
+    if (l_read_callback != nullptr)
+    {
+        read_callback = l_read_callback;
+        m_read_callback_dst_buffer = l_buffer;
+        m_callback_dst_bytes_read = l_bytes_read;
+    }
+
     m_state[l_index] = SERVER_STATE::READING_SIGNALED;
 
     SetEvent(m_overlapped[l_index].hEvent);
@@ -1187,7 +1198,10 @@ bool CustomServer::adoptedRead(const DWORD l_index)
     return true;
 }
 
-bool CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_message)
+bool CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_message,
+                                void(*l_write_callback)(DWORD* l_bytes_written,
+                                    const DWORD l_src_bytes),
+                                DWORD* l_bytes_written)
 {
     if (m_state[l_index] != SERVER_STATE::CONNECTED)
     {
@@ -1198,6 +1212,12 @@ bool CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_messa
          
 
         return false;
+    }
+
+    if (l_write_callback != nullptr)
+    {
+        write_callback = l_write_callback;
+        m_callback_dst_bytes_written = l_bytes_written;
     }
 
     StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
@@ -1348,14 +1368,16 @@ void CustomServer::initRead(const DWORD l_index)
     if ((is_success == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
+        m_bytes_read[l_index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (read_callback != nullptr)
         {
-            read_callback(m_read_callback_buffer, m_callback_bytes_read);
+            read_callback(m_read_callback_dst_buffer, m_callback_dst_bytes_read, 
+                          m_request_buffers[l_index], m_bytes_read[l_index]);
         }
 
-        std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
+        //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
     }
@@ -1398,15 +1420,16 @@ void CustomServer::pendedRead(const DWORD l_index)
     if ((is_finished == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
+        m_bytes_read[l_index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (read_callback != nullptr)
         {
-            read_callback(m_read_callback_buffer, m_callback_bytes_read);
+            read_callback(m_read_callback_dst_buffer, m_callback_dst_bytes_read,
+                          m_request_buffers[l_index], m_bytes_read[l_index]);
         }
 
-        m_bytes_read[l_index] = bytes_processed;
-        std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
+        //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
     }
@@ -1441,11 +1464,12 @@ void CustomServer::initWrite(const DWORD l_index)
     if ((is_success == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY SEND
-        
+        m_bytes_written[l_index] = bytes_processed;
+
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (write_callback != nullptr)
         {
-            write_callback(m_write_callback_buffer, m_callback_bytes_written);
+            write_callback(m_callback_dst_bytes_written, m_bytes_written[l_index]);
         }
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
@@ -1491,11 +1515,12 @@ void CustomServer::pendedWrite(const DWORD l_index)
     if ((is_finished == true) || (bytes_processed != 0))
     {
         // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
+        m_bytes_written[l_index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (write_callback != nullptr)
         {
-            write_callback(m_write_callback_buffer, m_callback_bytes_written);
+            write_callback(m_callback_dst_bytes_written, m_bytes_written[l_index]);
         }
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
