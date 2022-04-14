@@ -1168,41 +1168,36 @@ void CustomServer::stop()
     }
 }
 
-void CustomServer::adoptedRead(const DWORD l_index)
+bool CustomServer::adoptedRead(const DWORD l_index)
 {
-    /**
-    while (m_state[l_index] != SERVER_STATE::CONNECTED)
-    {
-        //EMPTY WAIT LOOP;
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        //std::cout << "HERE" << std::endl;
-    }
-    **/
-
     if (m_state[l_index] != SERVER_STATE::CONNECTED)
     {
-        return;
+        std::cout << "[CustomServer::adoptedRead()] ";
+        std::cout << "Could not perform read operation, because state of a named pipe with index = ";
+        std::cout << l_index << " is " << static_cast<int>(m_state[l_index]);
+        std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
+
+        return false;
     }
 
     m_state[l_index] = SERVER_STATE::READING_SIGNALED;
 
     SetEvent(m_overlapped[l_index].hEvent);
+
+    return true;
 }
 
-void CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_message)
+bool CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_message)
 {
-    /**
-    while (m_state[l_index] != SERVER_STATE::CONNECTED)
-    {
-        //EMPTY WAIT LOOP;
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        //std::cout << "HERE" << std::endl;
-    }
-    **/
-
     if (m_state[l_index] != SERVER_STATE::CONNECTED)
     {
-        return;
+        std::cout << "[CustomServer::adoptedWrite()] ";
+        std::cout << "Could not perform read operation, because state of a named pipe with index = ";
+        std::cout << l_index << " is " << static_cast<int>(m_state[l_index]);
+        std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
+         
+
+        return false;
     }
 
     StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
@@ -1211,6 +1206,8 @@ void CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_messa
     m_state[l_index] = SERVER_STATE::WRITING_SIGNALED;
 
     SetEvent(m_overlapped[l_index].hEvent);
+
+    return true;
 }
 
 //EXPERIMENTAL PART

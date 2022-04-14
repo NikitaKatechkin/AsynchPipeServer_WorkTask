@@ -98,8 +98,8 @@ public:
 	void stop();
 
 	//To make bool
-	void adoptedRead(const DWORD l_index);
-	void adoptedWrite(const DWORD l_index, const std::wstring& l_message);
+	bool adoptedRead(const DWORD l_index);
+	bool adoptedWrite(const DWORD l_index, const std::wstring& l_message);
 private:
 	bool catchEvent(DWORD l_index);
 

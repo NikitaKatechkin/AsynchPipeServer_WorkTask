@@ -9,15 +9,25 @@ int main()
 
     //std::thread loop_th(&CustomServer::ProcessLoopV2, test_server);
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    //std::this_thread::sleep_for(std::chrono::seconds(2));
 
     test_server.run();
 
-    test_server.adoptedRead(0);
+    if (test_server.adoptedRead(0) == false)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+        test_server.adoptedRead(0);
+    }
 
-    test_server.adoptedWrite(0, L"Hello, world)))");
+    //std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    if (test_server.adoptedWrite(0, L"Hello, world)))") == false)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        test_server.adoptedWrite(0, L"Hello, world)))");
+    }
 
     test_server.stop();
 
