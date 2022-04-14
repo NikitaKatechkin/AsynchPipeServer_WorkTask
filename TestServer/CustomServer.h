@@ -112,22 +112,40 @@ private:
 	void initWrite(const DWORD l_index);
 	void pendedWrite(const DWORD l_index);
 
+	//MULTITHREADING PART
+
 	std::thread* m_process_loop_th = nullptr;
+
+	//SERVER STATE PART
 
 	DWORD m_capacity = 0;
 	std::wstring m_pipe_path;
 
 	bool m_is_server_running = false;
 
-	SERVER_STATE* m_state = nullptr; // = SERVER_STATE::NON_INITIALIZED;
+	//PIPE SERVER PART
+
+	SERVER_STATE* m_state = nullptr;
 	HANDLE* m_pipe = nullptr;
 	OVERLAPPED* m_overlapped = NULL;
 	HANDLE* m_event = nullptr;
 
+	//READ || WRITE PART
 
 	TCHAR** m_request_buffers = nullptr;
 	DWORD* m_bytes_read = nullptr;
 
 	TCHAR** m_reply_buffers = nullptr;
 	DWORD* m_bytes_written = nullptr;
+
+	//CALLBACKS PART
+
+	void(*read_callback)(std::wstring& l_buffer, DWORD& l_bytes_read) = nullptr;
+	std::wstring m_read_callback_buffer;
+	DWORD m_callback_bytes_read = 0;
+
+	void(*write_callback)(std::wstring& l_buffer, DWORD& l_bytes_written) = nullptr;
+	std::wstring m_write_callback_buffer;
+	DWORD m_callback_bytes_written = 0;
+
 };

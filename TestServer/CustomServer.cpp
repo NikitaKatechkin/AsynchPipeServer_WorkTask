@@ -1350,6 +1350,11 @@ void CustomServer::initRead(const DWORD l_index)
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
 
         //TO-DO: HERE SHOULD BE CALLBACK()
+        if (read_callback != nullptr)
+        {
+            read_callback(m_read_callback_buffer, m_callback_bytes_read);
+        }
+
         std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
@@ -1395,6 +1400,11 @@ void CustomServer::pendedRead(const DWORD l_index)
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
 
         //TO-DO: HERE SHOULD BE CALLBACK()
+        if (read_callback != nullptr)
+        {
+            read_callback(m_read_callback_buffer, m_callback_bytes_read);
+        }
+
         m_bytes_read[l_index] = bytes_processed;
         std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
@@ -1413,7 +1423,6 @@ void CustomServer::pendedRead(const DWORD l_index)
 
 void CustomServer::initWrite(const DWORD l_index)
 {
-    //TO-DO: HERE SHOULD BE CALLBACK()
     /**
     std::wstring l_buffer_to_write = L"Answer from server.";
     StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
@@ -1432,6 +1441,12 @@ void CustomServer::initWrite(const DWORD l_index)
     if ((is_success == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY SEND
+        
+        //TO-DO: HERE SHOULD BE CALLBACK()
+        if (write_callback != nullptr)
+        {
+            write_callback(m_write_callback_buffer, m_callback_bytes_written);
+        }
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
     }
@@ -1477,6 +1492,11 @@ void CustomServer::pendedWrite(const DWORD l_index)
     {
         // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
 
+        //TO-DO: HERE SHOULD BE CALLBACK()
+        if (write_callback != nullptr)
+        {
+            write_callback(m_write_callback_buffer, m_callback_bytes_written);
+        }
 
         m_state[l_index] = SERVER_STATE::CONNECTED;
     }
