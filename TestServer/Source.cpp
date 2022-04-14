@@ -9,15 +9,17 @@ int main()
 
     //std::thread loop_th(&CustomServer::ProcessLoopV2, test_server);
 
-    test_server.Run();
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    test_server.AdoptedRead(0);
+    test_server.run();
 
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    test_server.adoptedRead(0);
 
-    test_server.AdoptedWrite(0, L"Hello, world)))");
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    test_server.Stop();
+    test_server.adoptedWrite(0, L"Hello, world)))");
+
+    test_server.stop();
 
     system("pause");
     return 0;

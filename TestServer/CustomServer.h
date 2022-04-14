@@ -76,7 +76,7 @@ class CustomServer final
 {
 public:
 	CustomServer(const std::wstring& l_pipe_path, 
-				 const DWORD& l_capacity = DEFAULT_CAPACITY);
+				 const DWORD l_capacity = DEFAULT_CAPACITY);
 	~CustomServer();
 
 	//DEPRICATED PART STARTS
@@ -92,24 +92,25 @@ public:
 	**/
 	//DEPRICATED PART ENDS
 
-	void ProcessLoopV2();
+	void processLoopV2();
 
-	void Run();
-	void Stop();
+	void run();
+	void stop();
 
-	void AdoptedRead(const DWORD& l_index);
-	void AdoptedWrite(const DWORD& l_index, const std::wstring& l_message);
+	//To make bool
+	void adoptedRead(const DWORD l_index);
+	void adoptedWrite(const DWORD l_index, const std::wstring& l_message);
 private:
-	bool CatchEvent(DWORD& l_index);
+	bool catchEvent(DWORD l_index);
 
-	void InitConnect(const DWORD& l_index);
-	void PendedConnect(const DWORD& l_index);
+	void initConnect(const DWORD l_index);
+	void pendedConnect(const DWORD l_index);
 
-	void InitRead(const DWORD& l_index);
-	void PendedRead(const DWORD& l_index);
+	void initRead(const DWORD l_index);
+	void pendedRead(const DWORD l_index);
 
-	void InitWrite(const DWORD& l_index);
-	void PendedWrite(const DWORD& l_index);
+	void initWrite(const DWORD l_index);
+	void pendedWrite(const DWORD l_index);
 
 	std::thread* m_process_loop_th = nullptr;
 

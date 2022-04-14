@@ -464,7 +464,7 @@ static const DWORD PIPE_TIMEOUT = 5000;
 static const LPSECURITY_ATTRIBUTES PIPE_SECURITY_SETTINGS = nullptr;
 
 CustomServer::CustomServer(const std::wstring& l_pipe_path, 
-                           const DWORD& l_capacity):
+                           const DWORD l_capacity):
     m_pipe_path(l_pipe_path),
     m_capacity(l_capacity)
 {
@@ -525,7 +525,7 @@ CustomServer::CustomServer(const std::wstring& l_pipe_path,
             throw std::exception(error_message.str().c_str());
         }
 
-        InitConnect(index);
+        initConnect(index);
     }
 
     //m_process_loop_th = new std::thread(&CustomServer::ProcessLoopV2, this);
@@ -534,7 +534,7 @@ CustomServer::CustomServer(const std::wstring& l_pipe_path,
 CustomServer::~CustomServer()
 {
     //m_process_loop_th->join();
-    Stop();
+    stop();
 
     delete[] m_state;
     delete[] m_event;
@@ -1082,7 +1082,7 @@ void CustomServer::ProcessLoop()
 }
 **/
 
-void CustomServer::ProcessLoopV2()
+void CustomServer::processLoopV2()
 {
     m_is_server_running = true;
 
@@ -1090,7 +1090,7 @@ void CustomServer::ProcessLoopV2()
     {
         DWORD index = 0;
 
-        if (CatchEvent(index) == false)
+        if (catchEvent(index) == false)
         {
             continue;
         }
@@ -1100,11 +1100,11 @@ void CustomServer::ProcessLoopV2()
         switch (m_state[index])
         {
         case SERVER_STATE::NON_INITIALIZED:
-            InitConnect(index);
+            initConnect(index);
 
             break;
         case SERVER_STATE::CONNECTION_PENDED:
-            PendedConnect(index);
+            pendedConnect(index);
 
             break;
         case SERVER_STATE::CONNECTED:
@@ -1112,19 +1112,19 @@ void CustomServer::ProcessLoopV2()
 
             break;
         case SERVER_STATE::READING_PENDED:
-            PendedRead(index);
+            pendedRead(index);
             //exit_tmp_flag = true;
             break;
         case SERVER_STATE::READING_SIGNALED:
-            InitRead(index);
+            initRead(index);
             //exit_tmp_flag = true;
             break;
         case SERVER_STATE::WRITING_PENDED:
-            PendedWrite(index);
+            pendedWrite(index);
 
             break;
         case SERVER_STATE::WRITING_SIGNALED:
-            InitWrite(index);
+            initWrite(index);
 
             break;
         default:
@@ -1133,13 +1133,13 @@ void CustomServer::ProcessLoopV2()
     }
 }
 
-void CustomServer::Run()
+void CustomServer::run()
 {
-    m_process_loop_th = new std::thread(&CustomServer::ProcessLoopV2, this);
+    m_process_loop_th = new std::thread(&CustomServer::processLoopV2, this);
     m_process_loop_th->detach();
 }
 
-void CustomServer::Stop()
+void CustomServer::stop()
 {
     //m_is_server_running = false;
     //m_process_loop_th->join();
@@ -1168,13 +1168,20 @@ void CustomServer::Stop()
     }
 }
 
-void CustomServer::AdoptedRead(const DWORD& l_index)
+void CustomServer::adoptedRead(const DWORD l_index)
 {
+    /**
     while (m_state[l_index] != SERVER_STATE::CONNECTED)
     {
         //EMPTY WAIT LOOP;
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
         //std::cout << "HERE" << std::endl;
+    }
+    **/
+
+    if (m_state[l_index] != SERVER_STATE::CONNECTED)
+    {
+        return;
     }
 
     m_state[l_index] = SERVER_STATE::READING_SIGNALED;
@@ -1182,13 +1189,20 @@ void CustomServer::AdoptedRead(const DWORD& l_index)
     SetEvent(m_overlapped[l_index].hEvent);
 }
 
-void CustomServer::AdoptedWrite(const DWORD& l_index, const std::wstring& l_message)
+void CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_message)
 {
+    /**
     while (m_state[l_index] != SERVER_STATE::CONNECTED)
     {
         //EMPTY WAIT LOOP;
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
         //std::cout << "HERE" << std::endl;
+    }
+    **/
+
+    if (m_state[l_index] != SERVER_STATE::CONNECTED)
+    {
+        return;
     }
 
     StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
@@ -1201,7 +1215,7 @@ void CustomServer::AdoptedWrite(const DWORD& l_index, const std::wstring& l_mess
 
 //EXPERIMENTAL PART
 
-bool CustomServer::CatchEvent(DWORD& l_index)
+bool CustomServer::catchEvent(DWORD l_index)
 {
     l_index = WaitForMultipleObjects(m_capacity,
         m_event,
@@ -1226,7 +1240,7 @@ bool CustomServer::CatchEvent(DWORD& l_index)
     return (l_index < m_capacity);
 }
 
-void CustomServer::InitConnect(const DWORD& l_index)
+void CustomServer::initConnect(const DWORD l_index)
 {
     //TRYING TO CONNECT A NAMED PIPE
 
@@ -1291,7 +1305,7 @@ void CustomServer::InitConnect(const DWORD& l_index)
     }
 }
 
-void CustomServer::PendedConnect(const DWORD& l_index)
+void CustomServer::pendedConnect(const DWORD l_index)
 {
     DWORD bytes_processed = 0;
     bool is_finished = false;
@@ -1322,7 +1336,7 @@ void CustomServer::PendedConnect(const DWORD& l_index)
     }
 }
 
-void CustomServer::InitRead(const DWORD& l_index)
+void CustomServer::initRead(const DWORD l_index)
 {
     DWORD bytes_processed = 0;
     bool is_success = false;
@@ -1369,7 +1383,7 @@ void CustomServer::InitRead(const DWORD& l_index)
     }
 }
 
-void CustomServer::PendedRead(const DWORD& l_index)
+void CustomServer::pendedRead(const DWORD l_index)
 {
     DWORD bytes_processed = 0;
     bool is_finished = false;
@@ -1400,7 +1414,7 @@ void CustomServer::PendedRead(const DWORD& l_index)
     }
 }
 
-void CustomServer::InitWrite(const DWORD& l_index)
+void CustomServer::initWrite(const DWORD l_index)
 {
     //TO-DO: HERE SHOULD BE CALLBACK()
     /**
@@ -1452,7 +1466,7 @@ void CustomServer::InitWrite(const DWORD& l_index)
     }
 }
 
-void CustomServer::PendedWrite(const DWORD& l_index)
+void CustomServer::pendedWrite(const DWORD l_index)
 {
     DWORD bytes_processed = 0;
     bool is_finished = false;
