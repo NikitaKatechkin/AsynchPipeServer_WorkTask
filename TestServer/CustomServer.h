@@ -57,6 +57,7 @@ private:
 #include <TestLib/CustomNetworkAgent.h>
 
 #include <sstream>
+#include <mutex>
 
 static const DWORD DEFAULT_CAPACITY = 1;
 
@@ -75,8 +76,8 @@ enum class SERVER_STATE
 class CustomServer final
 {
 public:
-	CustomServer(const std::wstring& l_pipe_path, 
-				 const DWORD l_capacity = DEFAULT_CAPACITY);
+	CustomServer(const std::wstring& pipe_path, 
+				 const DWORD capacity = DEFAULT_CAPACITY);
 	~CustomServer();
 
 	//DEPRICATED PART STARTS
@@ -98,27 +99,27 @@ public:
 	void stop();
 
 	//To make bool
-	bool adoptedRead(const DWORD l_index, 
-					 void(*l_read_callback)(std::wstring* l_buffer, DWORD* l_bytes_read,
-						  const std::wstring& l_src_buffer, const DWORD l_src_bytes) = nullptr,
-					 std::wstring* l_buffer = nullptr,
-					 DWORD* l_bytes_read = nullptr);
+	bool adoptedRead(const DWORD index, 
+					 void(*read_callback)(std::wstring* dst_buffer, DWORD* dst_bytes_read,
+						  const std::wstring& src_buffer, const DWORD src_bytes_read) = nullptr,
+					 std::wstring* buffer = nullptr,
+					 DWORD* bytes_read = nullptr);
 
-	bool adoptedWrite(const DWORD l_index, const std::wstring& l_message,
-					  void(*l_write_callback)(DWORD* l_bytes_written, 
-											  const DWORD l_src_bytes) = nullptr,
-					  DWORD* l_bytes_written = nullptr);
+	bool adoptedWrite(const DWORD index, const std::wstring& message,
+					  void(*write_callback)(DWORD* bytes_written, 
+											const DWORD src_bytes) = nullptr,
+					  DWORD* bytes_written = nullptr);
 private:
-	bool catchEvent(DWORD l_index);
+	bool catchEvent(DWORD index);
 
-	void initConnect(const DWORD l_index);
-	void pendedConnect(const DWORD l_index);
+	void initConnect(const DWORD index);
+	void pendedConnect(const DWORD index);
 
-	void initRead(const DWORD l_index);
-	void pendedRead(const DWORD l_index);
+	void initRead(const DWORD index);
+	void pendedRead(const DWORD index);
 
-	void initWrite(const DWORD l_index);
-	void pendedWrite(const DWORD l_index);
+	void initWrite(const DWORD index);
+	void pendedWrite(const DWORD index);
 
 	//MULTITHREADING PART
 
@@ -148,12 +149,12 @@ private:
 
 	//CALLBACKS PART
 
-	void(*read_callback)(std::wstring* l_dst_buffer, DWORD* l_dst_bytes_read,
-						 const std::wstring& l_src_buffer, const DWORD l_src_bytes) = nullptr;
+	void(*read_callback)(std::wstring* dst_buffer, DWORD* dst_bytes_read,
+						 const std::wstring& src_buffer, const DWORD src_bytes) = nullptr;
 	std::wstring* m_read_callback_dst_buffer = nullptr;
 	DWORD* m_callback_dst_bytes_read = nullptr;
 
-	void(*write_callback)(DWORD* l_bytes_written, const DWORD l_src_bytes) = nullptr;
+	void(*write_callback)(DWORD* bytes_written, const DWORD src_bytes) = nullptr;
 	//std::wstring* m_write_callback_buffer = nullptr;
 	DWORD* m_callback_dst_bytes_written = nullptr;
 

@@ -463,10 +463,10 @@ static const DWORD PIPE_CAPACITY = PIPE_UNLIMITED_INSTANCES;
 static const DWORD PIPE_TIMEOUT = 5000;
 static const LPSECURITY_ATTRIBUTES PIPE_SECURITY_SETTINGS = nullptr;
 
-CustomServer::CustomServer(const std::wstring& l_pipe_path, 
-                           const DWORD l_capacity):
-    m_pipe_path(l_pipe_path),
-    m_capacity(l_capacity)
+CustomServer::CustomServer(const std::wstring& pipe_path, 
+                           const DWORD capacity):
+    m_pipe_path(pipe_path),
+    m_capacity(capacity)
 {
     //ALLOCATING MEMORY START
     m_state = new SERVER_STATE[m_capacity]{ SERVER_STATE::NON_INITIALIZED };
@@ -1168,101 +1168,101 @@ void CustomServer::stop()
     }
 }
 
-bool CustomServer::adoptedRead(const DWORD l_index,
-                        void(*l_read_callback)(std::wstring* l_dst_buffer, DWORD* l_dst_bytes_read,
-                             const std::wstring& l_src_buffer, const DWORD l_src_bytes),
-                        std::wstring* l_buffer,
-                        DWORD* l_bytes_read)
+bool CustomServer::adoptedRead(const DWORD index,
+                        void(*read_callback)(std::wstring* dst_buffer, DWORD* dst_bytes_read,
+                             const std::wstring& src_buffer, const DWORD src_bytes_read),
+                        std::wstring* buffer,
+                        DWORD* bytes_read)
 {
-    if (m_state[l_index] != SERVER_STATE::CONNECTED)
+    if (m_state[index] != SERVER_STATE::CONNECTED)
     {
         std::cout << "[CustomServer::adoptedRead()] ";
         std::cout << "Could not perform read operation, because state of a named pipe with index = ";
-        std::cout << l_index << " is " << static_cast<int>(m_state[l_index]);
+        std::cout << index << " is " << static_cast<int>(m_state[index]);
         std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
 
         return false;
     }
 
-    if (l_read_callback != nullptr)
+    if (read_callback != nullptr)
     {
-        read_callback = l_read_callback;
-        m_read_callback_dst_buffer = l_buffer;
-        m_callback_dst_bytes_read = l_bytes_read;
+        this->read_callback = read_callback;
+        m_read_callback_dst_buffer = buffer;
+        m_callback_dst_bytes_read = bytes_read;
     }
 
-    m_state[l_index] = SERVER_STATE::READING_SIGNALED;
+    m_state[index] = SERVER_STATE::READING_SIGNALED;
 
-    SetEvent(m_overlapped[l_index].hEvent);
+    SetEvent(m_overlapped[index].hEvent);
 
     return true;
 }
 
-bool CustomServer::adoptedWrite(const DWORD l_index, const std::wstring& l_message,
-                                void(*l_write_callback)(DWORD* l_bytes_written,
-                                    const DWORD l_src_bytes),
-                                DWORD* l_bytes_written)
+bool CustomServer::adoptedWrite(const DWORD index, const std::wstring& message,
+                                void(*write_callback)(DWORD* bytes_written,
+                                                      const DWORD src_bytes),
+                                DWORD* bytes_written)
 {
-    if (m_state[l_index] != SERVER_STATE::CONNECTED)
+    if (m_state[index] != SERVER_STATE::CONNECTED)
     {
         std::cout << "[CustomServer::adoptedWrite()] ";
         std::cout << "Could not perform read operation, because state of a named pipe with index = ";
-        std::cout << l_index << " is " << static_cast<int>(m_state[l_index]);
+        std::cout << index << " is " << static_cast<int>(m_state[index]);
         std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
          
 
         return false;
     }
 
-    if (l_write_callback != nullptr)
+    if (write_callback != nullptr)
     {
-        write_callback = l_write_callback;
-        m_callback_dst_bytes_written = l_bytes_written;
+        this->write_callback = write_callback;
+        m_callback_dst_bytes_written = bytes_written;
     }
 
-    StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
-                  l_message.c_str());
+    StringCchCopy(m_reply_buffers[index], DEFAULT_BUFSIZE,
+                  message.c_str());
 
-    m_state[l_index] = SERVER_STATE::WRITING_SIGNALED;
+    m_state[index] = SERVER_STATE::WRITING_SIGNALED;
 
-    SetEvent(m_overlapped[l_index].hEvent);
+    SetEvent(m_overlapped[index].hEvent);
 
     return true;
 }
 
 //EXPERIMENTAL PART
 
-bool CustomServer::catchEvent(DWORD l_index)
+bool CustomServer::catchEvent(DWORD index)
 {
-    l_index = WaitForMultipleObjects(m_capacity,
+    index = WaitForMultipleObjects(m_capacity,
         m_event,
         FALSE,
         INFINITE);
 
-    if (l_index == WAIT_FAILED)
+    if (index == WAIT_FAILED)
     {
         std::cout << "[CustomServer::CatchEvent()->WaitForMultipleObjects()]" << std::endl;
         std::cout << "Failed to get an index of an event." << std::endl;
         return false;
     }
-    else if (l_index == WAIT_TIMEOUT)
+    else if (index == WAIT_TIMEOUT)
     {
         std::cout << "[CustomServer::CatchEvent()->WaitForMultipleObjects()]" << std::endl;
         std::cout << "No events was accured during specified amount of time." << std::endl;
         return false;
     }
 
-    l_index -= WAIT_OBJECT_0;
+    index -= WAIT_OBJECT_0;
 
-    return (l_index < m_capacity);
+    return (index < m_capacity);
 }
 
-void CustomServer::initConnect(const DWORD l_index)
+void CustomServer::initConnect(const DWORD index)
 {
     //TRYING TO CONNECT A NAMED PIPE
 
-    bool is_connection_succeed = !ConnectNamedPipe(m_pipe[l_index],
-                                                  &m_overlapped[l_index]);
+    bool is_connection_succeed = !ConnectNamedPipe(m_pipe[index],
+                                                  &m_overlapped[index]);
 
     if (is_connection_succeed == true)
     {
@@ -1273,9 +1273,9 @@ void CustomServer::initConnect(const DWORD l_index)
 
             std::cout << "[SERVICE INFO] ";
             std::cout << "Connection was pended on a named pipe with index = ";
-            std::cout << l_index << std::endl;
+            std::cout << index << std::endl;
 
-            m_state[l_index] = SERVER_STATE::CONNECTION_PENDED;
+            m_state[index] = SERVER_STATE::CONNECTION_PENDED;
 
             break;
         case ERROR_PIPE_CONNECTED:
@@ -1301,14 +1301,14 @@ void CustomServer::initConnect(const DWORD l_index)
                 std::cout << " with GLE = " << GetLastError() << "." << std::endl;
             }
             **/
-            m_state[l_index] = SERVER_STATE::CONNECTED;
+            m_state[index] = SERVER_STATE::CONNECTED;
 
             break;
         default:
 
 
             std::cout << "[CustomServer::InitConnect()->ConnectNamedPipe()] ";
-            std::cout << "Unknown error occured on a named pipe with index = " << l_index;
+            std::cout << "Unknown error occured on a named pipe with index = " << index;
             std::cout << " with GLE = " << GetLastError() << "." << std::endl;
 
             break;
@@ -1317,19 +1317,19 @@ void CustomServer::initConnect(const DWORD l_index)
     else
     {
         std::cout << "[CustomServer::CustomServer()->ConnectNamedPipe()] ";
-        std::cout << "Failed to connect a named pipe with index = " << l_index;
+        std::cout << "Failed to connect a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 }
 
-void CustomServer::pendedConnect(const DWORD l_index)
+void CustomServer::pendedConnect(const DWORD index)
 {
     DWORD bytes_processed = 0;
     bool is_finished = false;
 
     //TRYING TO PERFORM PENDED CONNECT OPERATION
-    is_finished = GetOverlappedResult(m_pipe[l_index], 
-                                      &m_overlapped[l_index], 
+    is_finished = GetOverlappedResult(m_pipe[index],
+                                      &m_overlapped[index],
                                       &bytes_processed, 
                                       FALSE);
 
@@ -1338,48 +1338,48 @@ void CustomServer::pendedConnect(const DWORD l_index)
         //PIPE SUCCESFULY CONNECTED -> SWITCH TO CONNECTED STATE
 
         std::cout << "[SERVICE INFO]: ";
-        std::cout << "Pipe with index = " << l_index << " successfuly connected.";
+        std::cout << "Pipe with index = " << index << " successfuly connected.";
         std::cout << std::endl;
 
-        m_state[l_index] = SERVER_STATE::CONNECTED;
+        m_state[index] = SERVER_STATE::CONNECTED;
     }
     else
     {
         //OPERATION FAILED
 
         std::cout << "[CustomServer::PendedConnect()->GetOverlappedResult()] ";
-        std::cout << "Failed to connect a named pipe with index = " << l_index;
+        std::cout << "Failed to connect a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 }
 
-void CustomServer::initRead(const DWORD l_index)
+void CustomServer::initRead(const DWORD index)
 {
     DWORD bytes_processed = 0;
     bool is_success = false;
 
     //TRYING TO READ A MESSAGE FROM A NAMED PIPE
-    is_success = ReadFile(m_pipe[l_index],
-                          m_request_buffers[l_index],
+    is_success = ReadFile(m_pipe[index],
+                          m_request_buffers[index],
                           DEFAULT_BUFSIZE * sizeof(TCHAR),
                           &bytes_processed,
-                          &m_overlapped[l_index]);
+                          &m_overlapped[index]);
 
     if ((is_success == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-        m_bytes_read[l_index] = bytes_processed;
+        m_bytes_read[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (read_callback != nullptr)
         {
             read_callback(m_read_callback_dst_buffer, m_callback_dst_bytes_read, 
-                          m_request_buffers[l_index], m_bytes_read[l_index]);
+                          m_request_buffers[index], m_bytes_read[index]);
         }
 
         //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
-        m_state[l_index] = SERVER_STATE::CONNECTED;
+        m_state[index] = SERVER_STATE::CONNECTED;
     }
     else
     {
@@ -1391,9 +1391,9 @@ void CustomServer::initRead(const DWORD l_index)
 
             std::cout << "[SERVICE INFO] ";
             std::cout << "Read operation was pended on a named pipe with index = ";
-            std::cout << l_index << std::endl;
+            std::cout << index << std::endl;
 
-            m_state[l_index] = SERVER_STATE::READING_PENDED;
+            m_state[index] = SERVER_STATE::READING_PENDED;
         }
         else
         {
@@ -1401,37 +1401,37 @@ void CustomServer::initRead(const DWORD l_index)
 
             //TO-DO: HERE SHOULD BE RECONNECT()
             std::cout << "[CustomServer::InitRead()->ReadFile()] ";
-            std::cout << "Failed to read data on a named pipe with index = " << l_index;
+            std::cout << "Failed to read data on a named pipe with index = " << index;
             std::cout << " with GLE = " << GetLastError() << "." << std::endl;
         }
     }
 }
 
-void CustomServer::pendedRead(const DWORD l_index)
+void CustomServer::pendedRead(const DWORD index)
 {
     DWORD bytes_processed = 0;
     bool is_finished = false;
     
-    is_finished = GetOverlappedResult(m_pipe[l_index],
-                                      &m_overlapped[l_index],
+    is_finished = GetOverlappedResult(m_pipe[index],
+                                      &m_overlapped[index],
                                       &bytes_processed,
                                       FALSE);
 
     if ((is_finished == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-        m_bytes_read[l_index] = bytes_processed;
+        m_bytes_read[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (read_callback != nullptr)
         {
             read_callback(m_read_callback_dst_buffer, m_callback_dst_bytes_read,
-                          m_request_buffers[l_index], m_bytes_read[l_index]);
+                          m_request_buffers[index], m_bytes_read[index]);
         }
 
         //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
-        m_state[l_index] = SERVER_STATE::CONNECTED;
+        m_state[index] = SERVER_STATE::CONNECTED;
     }
     else
     {
@@ -1439,12 +1439,12 @@ void CustomServer::pendedRead(const DWORD l_index)
 
         //TO-DO: HERE SHOULD BE RECONNECT()
         std::cout << "[CustomServer::PendedRead()->GetOverlappedResult()] ";
-        std::cout << "Failed to read data on a named pipe with index = " << l_index;
+        std::cout << "Failed to read data on a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 }
 
-void CustomServer::initWrite(const DWORD l_index)
+void CustomServer::initWrite(const DWORD index)
 {
     /**
     std::wstring l_buffer_to_write = L"Answer from server.";
@@ -1455,24 +1455,24 @@ void CustomServer::initWrite(const DWORD l_index)
     DWORD bytes_processed = 0;
     bool is_success = false;
     
-    is_success = WriteFile(m_pipe[l_index],
-                           m_reply_buffers[l_index],
+    is_success = WriteFile(m_pipe[index],
+                           m_reply_buffers[index],
                            DEFAULT_BUFSIZE * sizeof(TCHAR),
                            &bytes_processed,
-                           &m_overlapped[l_index]);
+                           &m_overlapped[index]);
 
     if ((is_success == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY SEND
-        m_bytes_written[l_index] = bytes_processed;
+        m_bytes_written[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (write_callback != nullptr)
         {
-            write_callback(m_callback_dst_bytes_written, m_bytes_written[l_index]);
+            write_callback(m_callback_dst_bytes_written, m_bytes_written[index]);
         }
 
-        m_state[l_index] = SERVER_STATE::CONNECTED;
+        m_state[index] = SERVER_STATE::CONNECTED;
     }
     else
     {
@@ -1486,9 +1486,9 @@ void CustomServer::initWrite(const DWORD l_index)
 
             std::cout << "[SERVICE INFO] ";
             std::cout << "Write operation was pended on a named pipe with index = ";
-            std::cout << l_index << std::endl;
+            std::cout << index << std::endl;
 
-            m_state[l_index] = SERVER_STATE::WRITING_PENDED;
+            m_state[index] = SERVER_STATE::WRITING_PENDED;
         }
         else
         {
@@ -1496,34 +1496,34 @@ void CustomServer::initWrite(const DWORD l_index)
 
             //TO-DO: HERE SHOULD BE RECONNECT()
             std::cout << "[CustomServer::InitWrite()->WriteFile()] ";
-            std::cout << "Failed to write data on a named pipe with index = " << l_index;
+            std::cout << "Failed to write data on a named pipe with index = " << index;
             std::cout << " with GLE = " << GetLastError() << "." << std::endl;
         }
     }
 }
 
-void CustomServer::pendedWrite(const DWORD l_index)
+void CustomServer::pendedWrite(const DWORD index)
 {
     DWORD bytes_processed = 0;
     bool is_finished = false;
     
-    is_finished = GetOverlappedResult(m_pipe[l_index],
-                                    &m_overlapped[l_index],
+    is_finished = GetOverlappedResult(m_pipe[index],
+                                    &m_overlapped[index],
                                     &bytes_processed,
                                     FALSE);
 
     if ((is_finished == true) || (bytes_processed != 0))
     {
         // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
-        m_bytes_written[l_index] = bytes_processed;
+        m_bytes_written[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
         if (write_callback != nullptr)
         {
-            write_callback(m_callback_dst_bytes_written, m_bytes_written[l_index]);
+            write_callback(m_callback_dst_bytes_written, m_bytes_written[index]);
         }
 
-        m_state[l_index] = SERVER_STATE::CONNECTED;
+        m_state[index] = SERVER_STATE::CONNECTED;
     }
     else
     {
@@ -1531,7 +1531,7 @@ void CustomServer::pendedWrite(const DWORD l_index)
         
         //TO-DO: HERE SHOULD BE RECONNECT()
         std::cout << "[CustomServer::PendedRead()->GetOverlappedResult()] ";
-        std::cout << "Failed to write data on a named pipe with index = " << l_index;
+        std::cout << "Failed to write data on a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 }
