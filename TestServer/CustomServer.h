@@ -61,16 +61,16 @@ private:
 
 static const DWORD DEFAULT_CAPACITY = 1;
 
-enum class SERVER_STATE
+enum class Server_State
 {
-	NON_INITIALIZED,
-	DISCONNECTED,
-	CONNECTION_PENDED,
-	CONNECTED,
-	READING_PENDED,
-	READING_SIGNALED,
-	WRITING_PENDED,
-	WRITING_SIGNALED
+	Non_Initialized,
+	Disconnected,
+	Connection_Pended,
+	Connected,
+	Reading_Pended,
+	Reading_Signaled,
+	Writing_Pended,
+	Writing_Signaled
 };
 
 class CustomServer final
@@ -125,11 +125,8 @@ private:
 
 	//MULTITHREADING PART
 
-	//std::thread* m_process_loop_th = nullptr;
 	std::thread m_process_loop_th;
 	std::mutex m_mutex;
-
-	//std::mutex m_mutex_2;
 
 	//SERVER STATE PART
 
@@ -140,7 +137,7 @@ private:
 
 	//PIPE SERVER PART
 
-	SERVER_STATE* m_state = nullptr;
+	Server_State* m_state = nullptr;
 	HANDLE* m_pipe = nullptr;
 	OVERLAPPED* m_overlapped = NULL;
 	HANDLE* m_event = nullptr;

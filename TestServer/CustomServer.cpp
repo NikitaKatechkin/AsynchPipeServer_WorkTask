@@ -469,7 +469,7 @@ CustomServer::CustomServer(const std::wstring& pipe_path,
     m_capacity(capacity)
 {
     //ALLOCATING MEMORY START
-    m_state = new SERVER_STATE[m_capacity]{ SERVER_STATE::NON_INITIALIZED };
+    m_state = new Server_State[m_capacity]{ Server_State::Non_Initialized };
     m_event = new HANDLE[m_capacity] { INVALID_HANDLE_VALUE };
 
     m_pipe = new HANDLE[m_capacity] { INVALID_HANDLE_VALUE };
@@ -1107,31 +1107,31 @@ void CustomServer::processLoopV2()
 
         switch (m_state[index])
         {
-        case SERVER_STATE::NON_INITIALIZED:
+        case Server_State::Non_Initialized:
             initConnect(index);
 
             break;
-        case SERVER_STATE::CONNECTION_PENDED:
+        case Server_State::Connection_Pended:
             pendedConnect(index);
 
             break;
-        case SERVER_STATE::CONNECTED:
+        case Server_State::Connected:
             ResetEvent(m_overlapped[index].hEvent);
 
             break;
-        case SERVER_STATE::READING_PENDED:
+        case Server_State::Reading_Pended:
             pendedRead(index);
             //exit_tmp_flag = true;
             break;
-        case SERVER_STATE::READING_SIGNALED:
+        case Server_State::Reading_Signaled:
             initRead(index);
             //exit_tmp_flag = true;
             break;
-        case SERVER_STATE::WRITING_PENDED:
+        case Server_State::Writing_Pended:
             pendedWrite(index);
 
             break;
-        case SERVER_STATE::WRITING_SIGNALED:
+        case Server_State::Writing_Signaled:
             initWrite(index);
 
             break;
@@ -1167,10 +1167,10 @@ void CustomServer::stop()
         is_all_pipe_handled = true;
         for (DWORD index = 0; index < m_capacity; index++)
         {
-            if (!((m_state[index] == SERVER_STATE::NON_INITIALIZED) ||
-                (m_state[index] == SERVER_STATE::DISCONNECTED) ||
-                (m_state[index] == SERVER_STATE::CONNECTED) ||
-                (m_state[index] == SERVER_STATE::CONNECTION_PENDED)))
+            if (!((m_state[index] == Server_State::Non_Initialized) ||
+                (m_state[index] == Server_State::Disconnected) ||
+                (m_state[index] == Server_State::Connected) ||
+                (m_state[index] == Server_State::Connection_Pended)))
             {
                 is_all_pipe_handled = false;
                 break;
@@ -1193,14 +1193,14 @@ bool CustomServer::adoptedRead(const DWORD index,
                         std::wstring* buffer,
                         DWORD* bytes_read)
 {
-    if (m_state[index] != SERVER_STATE::CONNECTED)
+    if (m_state[index] != Server_State::Connected)
     {
         m_mutex.lock();
 
         std::cout << "[CustomServer::adoptedRead()] ";
         std::cout << "Could not perform read operation, because state of a named pipe with index = ";
         std::cout << index << " is " << static_cast<int>(m_state[index]);
-        std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
+        std::cout << " != " << static_cast<int>(Server_State::Connected) << std::endl;
 
         m_mutex.unlock();
 
@@ -1214,7 +1214,7 @@ bool CustomServer::adoptedRead(const DWORD index,
         m_callback_dst_bytes_read = bytes_read;
     }
 
-    m_state[index] = SERVER_STATE::READING_SIGNALED;
+    m_state[index] = Server_State::Reading_Signaled;
 
     SetEvent(m_overlapped[index].hEvent);
 
@@ -1226,14 +1226,14 @@ bool CustomServer::adoptedWrite(const DWORD index, const std::wstring& message,
                                                       const DWORD src_bytes),
                                 DWORD* bytes_written)
 {
-    if (m_state[index] != SERVER_STATE::CONNECTED)
+    if (m_state[index] != Server_State::Connected)
     {
         m_mutex.lock();
 
         std::cout << "[CustomServer::adoptedWrite()] ";
         std::cout << "Could not perform write operation, because state of a named pipe with index = ";
         std::cout << index << " is " << static_cast<int>(m_state[index]);
-        std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
+        std::cout << " != " << static_cast<int>(Server_State::Connected) << std::endl;
          
         m_mutex.unlock();
 
@@ -1249,7 +1249,7 @@ bool CustomServer::adoptedWrite(const DWORD index, const std::wstring& message,
     StringCchCopy(m_reply_buffers[index], DEFAULT_BUFSIZE,
                   message.c_str());
 
-    m_state[index] = SERVER_STATE::WRITING_SIGNALED;
+    m_state[index] = Server_State::Writing_Signaled;
 
     SetEvent(m_overlapped[index].hEvent);
 
@@ -1303,7 +1303,7 @@ void CustomServer::initConnect(const DWORD index)
             std::cout << "Connection was pended on a named pipe with index = ";
             std::cout << index << std::endl;
 
-            m_state[index] = SERVER_STATE::CONNECTION_PENDED;
+            m_state[index] = Server_State::Connection_Pended;
 
             break;
         case ERROR_PIPE_CONNECTED:
@@ -1329,7 +1329,7 @@ void CustomServer::initConnect(const DWORD index)
                 std::cout << " with GLE = " << GetLastError() << "." << std::endl;
             }
             **/
-            m_state[index] = SERVER_STATE::CONNECTED;
+            m_state[index] = Server_State::Connected;
 
             break;
         default:
@@ -1373,7 +1373,7 @@ void CustomServer::pendedConnect(const DWORD index)
         std::cout << "Pipe with index = " << index << " successfuly connected.";
         std::cout << std::endl;
 
-        m_state[index] = SERVER_STATE::CONNECTED;
+        m_state[index] = Server_State::Connected;
     }
     else
     {
@@ -1415,7 +1415,7 @@ void CustomServer::initRead(const DWORD index)
 
         //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
-        m_state[index] = SERVER_STATE::CONNECTED;
+        m_state[index] = Server_State::Connected;
     }
     else
     {
@@ -1429,7 +1429,7 @@ void CustomServer::initRead(const DWORD index)
             std::cout << "Read operation was pended on a named pipe with index = ";
             std::cout << index << std::endl;
 
-            m_state[index] = SERVER_STATE::READING_PENDED;
+            m_state[index] = Server_State::Reading_Pended;
         }
         else
         {
@@ -1471,7 +1471,7 @@ void CustomServer::pendedRead(const DWORD index)
 
         //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
-        m_state[index] = SERVER_STATE::CONNECTED;
+        m_state[index] = Server_State::Connected;
     }
     else
     {
@@ -1516,7 +1516,7 @@ void CustomServer::initWrite(const DWORD index)
             write_callback(m_callback_dst_bytes_written, m_bytes_written[index]);
         }
 
-        m_state[index] = SERVER_STATE::CONNECTED;
+        m_state[index] = Server_State::Connected;
     }
     else
     {
@@ -1532,7 +1532,7 @@ void CustomServer::initWrite(const DWORD index)
             std::cout << "Write operation was pended on a named pipe with index = ";
             std::cout << index << std::endl;
 
-            m_state[index] = SERVER_STATE::WRITING_PENDED;
+            m_state[index] = Server_State::Writing_Pended;
         }
         else
         {
@@ -1571,7 +1571,7 @@ void CustomServer::pendedWrite(const DWORD index)
             write_callback(m_callback_dst_bytes_written, m_bytes_written[index]);
         }
 
-        m_state[index] = SERVER_STATE::CONNECTED;
+        m_state[index] = Server_State::Connected;
     }
     else
     {
