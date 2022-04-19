@@ -98,7 +98,7 @@ public:
 	void run();
 	void stop();
 
-	//To make bool
+	//ALL METHODS BELOW SHOULD BE MUTEX
 	bool adoptedRead(const DWORD index, 
 					 void(*read_callback)(std::wstring* dst_buffer, DWORD* dst_bytes_read,
 						  const std::wstring& src_buffer, const DWORD src_bytes_read) = nullptr,
@@ -110,6 +110,8 @@ public:
 											const DWORD src_bytes) = nullptr,
 					  DWORD* bytes_written = nullptr);
 private:
+	//ALL METHODS BELOW SHOULD BE MUTEX
+
 	bool catchEvent(DWORD index);
 
 	void initConnect(const DWORD index);
@@ -123,7 +125,11 @@ private:
 
 	//MULTITHREADING PART
 
-	std::thread* m_process_loop_th = nullptr;
+	//std::thread* m_process_loop_th = nullptr;
+	std::thread m_process_loop_th;
+	std::mutex m_mutex;
+
+	//std::mutex m_mutex_2;
 
 	//SERVER STATE PART
 

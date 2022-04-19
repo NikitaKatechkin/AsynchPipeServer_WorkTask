@@ -13,7 +13,7 @@ void CopyReadInfo(std::wstring* l_dst_buffer, DWORD* l_dst_bytes_read,
     std::wcout << std::endl;
 }
 
-void CopyInfo(DWORD* l_dst_bytes_read, const DWORD l_src_bytes)
+void CopyWriteInfo(DWORD* l_dst_bytes_read, const DWORD l_src_bytes)
 {
     *l_dst_bytes_read = l_src_bytes;
 
@@ -26,15 +26,11 @@ int main()
 {
     CustomServer test_server(DEFAULT_PIPE_NAME);
 
-    //std::thread loop_th(&CustomServer::ProcessLoopV2, test_server);
-
-    //std::this_thread::sleep_for(std::chrono::seconds(2));
-
     std::wstring read_buffer = L"";
     DWORD bytes_read = 0;
 
     test_server.run();
-
+    
     if (test_server.adoptedRead(0, CopyReadInfo, 
                                 &read_buffer, &bytes_read) == false)
     {
@@ -48,13 +44,14 @@ int main()
 
     DWORD bytes_written = 0;
 
+    
     if (test_server.adoptedWrite(0, L"Hello, world)))",
-                                 CopyInfo, &bytes_written) == false)
+                                 CopyWriteInfo, &bytes_written) == false)
     {
         std::this_thread::sleep_for(std::chrono::seconds(5));
 
         test_server.adoptedWrite(0, L"Hello, world)))",
-                                 CopyInfo, &bytes_written);
+                                 CopyWriteInfo, &bytes_written);
     }
 
     test_server.stop();

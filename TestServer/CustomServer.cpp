@@ -533,8 +533,13 @@ CustomServer::CustomServer(const std::wstring& pipe_path,
 
 CustomServer::~CustomServer()
 {
-    //m_process_loop_th->join();
-    stop();
+    //stop();
+    //delete m_process_loop_th;
+
+    if (m_is_server_running == true)
+    {
+        this->stop();
+    }
 
     delete[] m_state;
     delete[] m_event;
@@ -1095,7 +1100,10 @@ void CustomServer::processLoopV2()
             continue;
         }
 
+
+        m_mutex.lock();
         std::cout << "Index = " << index << "; STATE = " << int(m_state[index]) << ";" << std::endl;
+        m_mutex.unlock();
 
         switch (m_state[index])
         {
@@ -1135,15 +1143,24 @@ void CustomServer::processLoopV2()
 
 void CustomServer::run()
 {
-    m_process_loop_th = new std::thread(&CustomServer::processLoopV2, this);
-    m_process_loop_th->detach();
+    m_is_server_running = true;
+    m_process_loop_th = std::thread(&CustomServer::processLoopV2, this);
 }
 
 void CustomServer::stop()
 {
-    //m_is_server_running = false;
-    //m_process_loop_th->join();
+    /**
+    * 
+    * WORKING VERSION
+    * 
+    m_is_server_running = false;
+    m_process_loop_th.join();
+    *
+    * 
+    * 
+    **/
 
+    
     bool is_all_pipe_handled = true;
     while (true)
     {
@@ -1166,6 +1183,8 @@ void CustomServer::stop()
             break;
         }
     }
+
+    m_process_loop_th.join();
 }
 
 bool CustomServer::adoptedRead(const DWORD index,
@@ -1176,10 +1195,14 @@ bool CustomServer::adoptedRead(const DWORD index,
 {
     if (m_state[index] != SERVER_STATE::CONNECTED)
     {
+        m_mutex.lock();
+
         std::cout << "[CustomServer::adoptedRead()] ";
         std::cout << "Could not perform read operation, because state of a named pipe with index = ";
         std::cout << index << " is " << static_cast<int>(m_state[index]);
         std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
+
+        m_mutex.unlock();
 
         return false;
     }
@@ -1205,11 +1228,14 @@ bool CustomServer::adoptedWrite(const DWORD index, const std::wstring& message,
 {
     if (m_state[index] != SERVER_STATE::CONNECTED)
     {
+        m_mutex.lock();
+
         std::cout << "[CustomServer::adoptedWrite()] ";
-        std::cout << "Could not perform read operation, because state of a named pipe with index = ";
+        std::cout << "Could not perform write operation, because state of a named pipe with index = ";
         std::cout << index << " is " << static_cast<int>(m_state[index]);
         std::cout << " != " << static_cast<int>(SERVER_STATE::CONNECTED) << std::endl;
          
+        m_mutex.unlock();
 
         return false;
     }
@@ -1259,6 +1285,8 @@ bool CustomServer::catchEvent(DWORD index)
 
 void CustomServer::initConnect(const DWORD index)
 {
+    m_mutex.lock();
+
     //TRYING TO CONNECT A NAMED PIPE
 
     bool is_connection_succeed = !ConnectNamedPipe(m_pipe[index],
@@ -1320,10 +1348,14 @@ void CustomServer::initConnect(const DWORD index)
         std::cout << "Failed to connect a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
+
+    m_mutex.unlock();
 }
 
 void CustomServer::pendedConnect(const DWORD index)
 {
+    m_mutex.lock();
+
     DWORD bytes_processed = 0;
     bool is_finished = false;
 
@@ -1351,10 +1383,14 @@ void CustomServer::pendedConnect(const DWORD index)
         std::cout << "Failed to connect a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
+
+    m_mutex.unlock();
 }
 
 void CustomServer::initRead(const DWORD index)
 {
+    m_mutex.lock();
+
     DWORD bytes_processed = 0;
     bool is_success = false;
 
@@ -1405,10 +1441,14 @@ void CustomServer::initRead(const DWORD index)
             std::cout << " with GLE = " << GetLastError() << "." << std::endl;
         }
     }
+
+    m_mutex.unlock();
 }
 
 void CustomServer::pendedRead(const DWORD index)
 {
+    m_mutex.lock();
+
     DWORD bytes_processed = 0;
     bool is_finished = false;
     
@@ -1442,6 +1482,8 @@ void CustomServer::pendedRead(const DWORD index)
         std::cout << "Failed to read data on a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
+
+    m_mutex.unlock();
 }
 
 void CustomServer::initWrite(const DWORD index)
@@ -1451,6 +1493,8 @@ void CustomServer::initWrite(const DWORD index)
     StringCchCopy(m_reply_buffers[l_index], DEFAULT_BUFSIZE,
                   l_buffer_to_write.c_str());
     **/
+
+    m_mutex.lock();
 
     DWORD bytes_processed = 0;
     bool is_success = false;
@@ -1500,10 +1544,14 @@ void CustomServer::initWrite(const DWORD index)
             std::cout << " with GLE = " << GetLastError() << "." << std::endl;
         }
     }
+
+    m_mutex.unlock();
 }
 
 void CustomServer::pendedWrite(const DWORD index)
 {
+    m_mutex.lock();
+
     DWORD bytes_processed = 0;
     bool is_finished = false;
     
@@ -1534,5 +1582,7 @@ void CustomServer::pendedWrite(const DWORD index)
         std::cout << "Failed to write data on a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
+
+    m_mutex.unlock();
 }
 
