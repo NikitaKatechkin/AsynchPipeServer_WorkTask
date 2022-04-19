@@ -93,24 +93,25 @@ public:
 	**/
 	//DEPRICATED PART ENDS
 
-	void processLoopV2();
 
 	void run();
 	void stop();
 
 	//ALL METHODS BELOW SHOULD BE MUTEX
-	bool adoptedRead(const DWORD index, 
+	bool read(const DWORD index, 
 					 void(*read_callback)(std::wstring* dst_buffer, DWORD* dst_bytes_read,
 						  const std::wstring& src_buffer, const DWORD src_bytes_read) = nullptr,
 					 std::wstring* buffer = nullptr,
 					 DWORD* bytes_read = nullptr);
 
-	bool adoptedWrite(const DWORD index, const std::wstring& message,
+	bool write(const DWORD index, const std::wstring& message,
 					  void(*write_callback)(DWORD* bytes_written, 
 											const DWORD src_bytes) = nullptr,
 					  DWORD* bytes_written = nullptr);
 private:
 	//ALL METHODS BELOW SHOULD BE MUTEX
+
+	void processLoopV2();
 
 	bool catchEvent(DWORD index);
 

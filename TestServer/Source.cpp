@@ -31,12 +31,12 @@ int main()
 
     test_server.run();
     
-    if (test_server.adoptedRead(0, CopyReadInfo, 
+    if (test_server.read(0, CopyReadInfo, 
                                 &read_buffer, &bytes_read) == false)
     {
         std::this_thread::sleep_for(std::chrono::seconds(5));
 
-        test_server.adoptedRead(0, CopyReadInfo,
+        test_server.read(0, CopyReadInfo,
                                 &read_buffer, &bytes_read);
     }
 
@@ -45,12 +45,12 @@ int main()
     DWORD bytes_written = 0;
 
     
-    if (test_server.adoptedWrite(0, L"Hello, world)))",
+    if (test_server.write(0, L"Hello, world)))",
                                  CopyWriteInfo, &bytes_written) == false)
     {
         std::this_thread::sleep_for(std::chrono::seconds(5));
 
-        test_server.adoptedWrite(0, L"Hello, world)))",
+        test_server.write(0, L"Hello, world)))",
                                  CopyWriteInfo, &bytes_written);
     }
 
