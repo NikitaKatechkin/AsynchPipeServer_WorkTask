@@ -59,20 +59,19 @@ protected:
 	bool waitForEvent(DWORD index);
 
 	virtual void initConnect(const DWORD index) = 0;
-	//void OnConnect(const DWORD index); //Should be depricated
 
 	void initRead(const DWORD index);
-	//void OnRead(const DWORD index); //Should be depricated
 
 	void initWrite(const DWORD index);
-	//void OnWrite(const DWORD index); //Should be depricated
 
 	void OnPended(const DWORD index);
 protected:
 	//MULTITHREADING PART
 
 	std::thread m_processLoopThread;
+
 	std::mutex m_serviceOperationMutex;
+	std::mutex m_printLogMutex;
 
 	//SERVER STATE PART
 
