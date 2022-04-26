@@ -11,8 +11,8 @@ static const unsigned int MAX_NUMBER_OF_TRIES = 5;
 static const DWORD TIMEOUT_MILISEC = 5000;
 
 CustomAsynchClient::CustomAsynchClient(const std::wstring& pipe_path,
-    const DWORD capacity) :
-    CustomAsynchNetworkAgent(pipe_path, capacity)
+                                       const DWORD bufsize):
+    CustomAsynchNetworkAgent(pipe_path, 1, bufsize)
 {
     for (DWORD index = 0; index < m_capacity; index++)
     {
@@ -31,74 +31,9 @@ CustomAsynchClient::CustomAsynchClient(const std::wstring& pipe_path,
 
         m_overlapped[index].hEvent = m_event[index];
 
-        //ConstructConnect(m_pipe[index]);
-
-        //m_state[index] = Server_State::Connected;
         initConnect(index);
     }
 }
-
-CustomAsynchClient::~CustomAsynchClient()
-{
-}
-
-/**
-void CustomAsynchClient::ConstructConnect(HANDLE& l_pipe)
-{
-    std::cout << "[CustomClient::Connect()] Trying to connect to server..." << std::endl;
-
-    l_pipe = CreateFile(
-        m_pipe_path.c_str(),   // pipe name
-        PIPE_OPEN_MODE,  // read and write access ,
-        SHARING_MODE,              // no sharing
-        PIPE_SECURITY_SETTINGS,           // default security attributes
-        EXISTING_PROPERTIES,  // opens existing pipe
-        PIPE_SETTINGS,              // default attributes
-        TEMPLATE_FILE);
-
-    bool is_file_created = (l_pipe != INVALID_HANDLE_VALUE);
-
-    if (is_file_created == true)
-    {
-        std::cout << "[CustomAsynchClient::ConstructConnect()] Successfuly connected to server.";
-        std::cout << "Trying to change pipe configuration for message exchange..." << std::endl;
-
-        DWORD pipe_mode = PIPE_READMODE_MESSAGE;
-        bool is_connected = SetNamedPipeHandleState(
-            l_pipe,    // pipe handle
-            &pipe_mode,  // new pipe mode
-            NULL,     // don't set maximum bytes
-            NULL);
-
-        if (is_connected == true)
-        {
-            std::cout << "[CustomAsynchClient::ConstructConnect()]";
-            std::cout << " Pipe configuration successfuly changed.";
-            std::cout << std::endl;
-        }
-        else
-        {
-            std::stringstream error_message;
-
-            error_message << "[CustomAsynchClient::ConstructConnect()] ";
-            error_message << "Failed to create a named pipe object with GLE = ";
-            error_message << GetLastError() << "." << std::endl;
-
-            throw std::exception(error_message.str().c_str());
-        }
-    }
-    else
-    {
-        std::stringstream error_message;
-
-        error_message << "[CustomAsynchClient::ConstructConnect()] ";
-        error_message << "Failed to create a named pipe object with GLE = ";
-        error_message << GetLastError() << "." << std::endl;
-
-        throw std::exception(error_message.str().c_str());
-    }
-}
-**/
 
 void CustomAsynchClient::initConnect(const DWORD index)
 {

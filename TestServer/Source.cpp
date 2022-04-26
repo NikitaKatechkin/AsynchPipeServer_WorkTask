@@ -2,23 +2,17 @@
 
 static const LPCTSTR DEFAULT_PIPE_NAME = L"\\\\.\\pipe\\mynamedpipe";
 
-void CopyReadInfo(std::wstring* l_dst_buffer, DWORD* l_dst_bytes_read,
-    const std::wstring& l_src_buffer, const DWORD l_src_bytes)
+void CopyReadInfo(const std::wstring& l_buffer_read, const DWORD l_bytes_read)
 {
-    *l_dst_buffer = l_src_buffer;
-    *l_dst_bytes_read = l_src_bytes;
-
-    std::wcout << "[CLIENT]: " << L"{ TEXT MESSAGE } = " << *l_dst_buffer;
-    std::wcout << " { NUMBER BYTES READ } = " << *l_dst_bytes_read << ";";
+    std::wcout << "[SERVER]: " << L"{ TEXT MESSAGE } = " << l_buffer_read;
+    std::wcout << " { NUMBER BYTES READ } = " << l_bytes_read << ";";
     std::wcout << std::endl;
 }
 
-void CopyWriteInfo(DWORD* l_dst_bytes_read, const DWORD l_src_bytes)
+void CopyWriteInfo(const DWORD l_bytes_written)
 {
-    *l_dst_bytes_read = l_src_bytes;
-
     std::wcout << "[SERVICE INFO]: ";
-    std::wcout << " { NUMBER BYTES WRITTEN } = " << *l_dst_bytes_read << ";";
+    std::wcout << " { NUMBER BYTES WRITTEN } = " << l_bytes_written << ";";
     std::wcout << std::endl;
 }
 
@@ -33,24 +27,20 @@ int main()
 
         test_server.run();
 
-        if (test_server.read(0, CopyReadInfo,
-            &read_buffer, &bytes_read) == false)
+        if (test_server.read(0, &read_buffer, &bytes_read, CopyReadInfo) == false)
         {
             std::this_thread::sleep_for(std::chrono::seconds(5));
 
-            test_server.read(0, CopyReadInfo,
-                &read_buffer, &bytes_read);
+            test_server.read(0, &read_buffer, &bytes_read, CopyReadInfo);
         }
 
         DWORD bytes_written = 0;
 
-        if (test_server.write(0, L"Hello, world)))",
-            CopyWriteInfo, &bytes_written) == false)
+        if (test_server.write(0, L"Hello, world)))", &bytes_written, CopyWriteInfo) == false)
         {
             std::this_thread::sleep_for(std::chrono::seconds(5));
 
-            test_server.write(0, L"Hello, world)))",
-                CopyWriteInfo, &bytes_written);
+            test_server.write(0, L"Hello, world)))", &bytes_written, CopyWriteInfo);
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(3));
