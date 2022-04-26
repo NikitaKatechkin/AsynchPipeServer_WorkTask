@@ -37,11 +37,11 @@ CustomAsynchClient::CustomAsynchClient(const std::wstring& pipe_path,
 
 void CustomAsynchClient::initConnect(const DWORD index)
 {
-    m_mutex.lock();
+    m_serviceOperationMutex.lock();
 
     //TRYING TO CONNECT A NAMED PIPE
 
-    m_pipe[index] = CreateFile(m_pipe_path.c_str(),   // pipe name 
+    m_pipe[index] = CreateFile(m_pipePath.c_str(),   // pipe name 
         PIPE_OPEN_MODE,  // read and write access ,
         SHARING_MODE,              // no sharing 
         PIPE_SECURITY_SETTINGS,           // default security attributes
@@ -118,5 +118,5 @@ void CustomAsynchClient::initConnect(const DWORD index)
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 
-    m_mutex.unlock();
+    m_serviceOperationMutex.unlock();
 }

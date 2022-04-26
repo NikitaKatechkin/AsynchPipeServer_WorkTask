@@ -28,12 +28,12 @@ CustomAsynchServer::CustomAsynchServer(const std::wstring& pipe_path,
 
         m_overlapped[index].hEvent = m_event[index];
 
-        m_pipe[index] = CreateNamedPipe(m_pipe_path.c_str(),
+        m_pipe[index] = CreateNamedPipe(m_pipePath.c_str(),
             PIPE_OPEN_MODE,
             PIPE_MODE,
             m_capacity,
-            m_bufsize_tchar * sizeof(TCHAR),
-            m_bufsize_tchar * sizeof(TCHAR),
+            m_bufsize * sizeof(TCHAR),
+            m_bufsize * sizeof(TCHAR),
             PIPE_TIMEOUT,
             PIPE_SECURITY_SETTINGS);
 
@@ -54,7 +54,7 @@ CustomAsynchServer::CustomAsynchServer(const std::wstring& pipe_path,
 
 void CustomAsynchServer::initConnect(const DWORD index)
 {
-    m_mutex.lock();
+    m_serviceOperationMutex.lock();
 
     //TRYING TO CONNECT A NAMED PIPE
 
@@ -118,7 +118,7 @@ void CustomAsynchServer::initConnect(const DWORD index)
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 
-    m_mutex.unlock();
+    m_serviceOperationMutex.unlock();
 }
 
 /**

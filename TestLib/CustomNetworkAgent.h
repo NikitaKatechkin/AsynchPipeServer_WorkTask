@@ -14,11 +14,11 @@
 class CustomAsynchNetworkAgent
 {
 public:
-	using ReadCallback = void(*)(const std::wstring& buffer_read, const DWORD bytes_read);
-	using WriteCallback = void(*)(const DWORD bytes_written);
+	using ReadCallback = void(*)(const std::wstring& bufferRead, const DWORD bytesRead);
+	using WriteCallback = void(*)(const DWORD bytesWritten);
 
 public:
-	CustomAsynchNetworkAgent(const std::wstring& pipe_path,
+	CustomAsynchNetworkAgent(const std::wstring& pipePath,
 							 const DWORD capacity,
 							 const DWORD bufsize = 512);
 	virtual ~CustomAsynchNetworkAgent();
@@ -30,13 +30,13 @@ public:
 
 	bool read(const DWORD index,
 			  std::wstring* buffer = nullptr, //Change type -> TCHAR*
-			  DWORD* bytes_read = nullptr,
-			  ReadCallback read_callback = nullptr);
+			  DWORD* bytesRead = nullptr,
+			  ReadCallback readCallback = nullptr);
 
 	bool write(const DWORD index, 
 			   const std::wstring& message, //Change type -> TCHAR*
-			   DWORD* bytes_written = nullptr,
-			   WriteCallback write_callback = nullptr);
+			   DWORD* bytesWritten = nullptr,
+			   WriteCallback writeCallback = nullptr);
 
 protected:
 	enum class Server_State
@@ -70,15 +70,15 @@ protected:
 protected:
 	//MULTITHREADING PART
 
-	std::thread m_process_loop_th;
-	std::mutex m_mutex;
+	std::thread m_processLoopThread;
+	std::mutex m_serviceOperationMutex;
 
 	//SERVER STATE PART
 
 	DWORD m_capacity = 0;
-	std::wstring m_pipe_path;
+	std::wstring m_pipePath;
 
-	bool m_is_server_running = false;
+	bool m_isServerRunning = false;
 
 	//PIPE SERVER PART
 
@@ -89,22 +89,22 @@ protected:
 
 	//READ || WRITE PART
 
-	DWORD m_bufsize_tchar = 0;
+	DWORD m_bufsize = 0;
 
-	TCHAR** m_request_buffers = nullptr;
-	DWORD* m_bytes_read = nullptr;
+	TCHAR** m_requestBuffers = nullptr;
+	DWORD* m_bytesRead = nullptr;
 
-	TCHAR** m_reply_buffers = nullptr;
-	DWORD* m_bytes_written = nullptr;
+	TCHAR** m_replyBuffers = nullptr;
+	DWORD* m_bytesWritten = nullptr;
 
 	//CALLBACKS PART
 
-	ReadCallback m_read_callback = nullptr;
-	std::wstring* m_read_callback_dst_buffer = nullptr;
-	DWORD* m_callback_dst_bytes_read = nullptr;
+	ReadCallback m_readCallback = nullptr;
+	std::wstring* m_readCallbackDstBuffer = nullptr;
+	DWORD* m_callbackDstBytesRead = nullptr;
 
-	WriteCallback m_write_callback = nullptr;
+	WriteCallback m_writeCallback = nullptr;
 	//std::wstring* m_write_callback_buffer = nullptr;
-	DWORD* m_callback_dst_bytes_written = nullptr;
+	DWORD* m_callbackDstBytesWritten = nullptr;
 
 };
