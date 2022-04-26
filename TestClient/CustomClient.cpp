@@ -1,164 +1,7 @@
 #include "CustomClient.h"
 
-#include <sstream>
-/**
-----------------WORKING VERSION--------------------
-static const LPCTSTR PIPE_NAME = TEXT("\\\\.\\pipe\\mynamedpipe");
 static const DWORD PIPE_OPEN_MODE = GENERIC_READ | GENERIC_WRITE;
-static const DWORD SHARING_MODE = NULL;
-static const LPSECURITY_ATTRIBUTES PIPE_SECURITY_SETTINGS = nullptr;
-static const DWORD EXISTING_PROPERTIES = OPEN_EXISTING;
-static const DWORD PIPE_SETTINGS = NULL;
-static const HANDLE TEMPLATE_FILE = NULL;
-
-static const unsigned int MAX_NUMBER_OF_TRIES = 5;
-static const DWORD TIMEOUT_MILISEC = 20000;
-
-CustomClient::CustomClient(const LPCTSTR l_pipe_name):
-    m_pipe_name(l_pipe_name)
-{
-    m_pipe = CreateFile(
-        m_pipe_name,   // pipe name 
-        PIPE_OPEN_MODE,  // read and write access ,
-        SHARING_MODE,              // no sharing 
-        PIPE_SECURITY_SETTINGS,           // default security attributes
-        EXISTING_PROPERTIES,  // opens existing pipe 
-        PIPE_SETTINGS,              // default attributes 
-        TEMPLATE_FILE);
-    
-    //Check
-    m_is_connected = (m_pipe != INVALID_HANDLE_VALUE);
-}
-
-CustomClient::~CustomClient()
-{
-    CloseHandle(m_pipe);
-}
-
-void CustomClient::WaitConnection()
-{
-    if (m_is_connected == false)
-    {
-        for (unsigned int try_index = 0; try_index < MAX_NUMBER_OF_TRIES; try_index)
-        {
-            m_pipe = CreateFile(
-                m_pipe_name,   // pipe name 
-                PIPE_OPEN_MODE,  // read and write access ,
-                SHARING_MODE,              // no sharing 
-                PIPE_SECURITY_SETTINGS,           // default security attributes
-                EXISTING_PROPERTIES,  // opens existing pipe 
-                PIPE_SETTINGS,              // default attributes 
-                TEMPLATE_FILE);
-
-            //Check if client succesfully connected
-            if (m_pipe != INVALID_HANDLE_VALUE)
-            {
-                m_is_connected = true;
-                break;
-            }
-
-            //Check that the reason of connection error was because of pipe business
-            if (GetLastError() != ERROR_PIPE_BUSY)
-            {
-                throw std::exception("[CustomClient::CustomClient()] False error reason when connect to a named pipe.");
-            }
-
-            //Wait to connect again
-            if (WaitNamedPipe(m_pipe_name, TIMEOUT_MILISEC) == NULL)
-            {
-                throw std::exception("[CustomClient::CustomClient()] Error while waiting named pipe to connect.");
-            }
-        }
-
-    }
-
-    //Final check
-    if (m_pipe == INVALID_HANDLE_VALUE)
-    {
-        throw std::exception("[CustomClient::CustomClient()] Failed to connect to a named pipe.");
-    }
-    else
-    {
-        m_is_connected = true;
-
-        DWORD mode = PIPE_READMODE_MESSAGE;
-        bool success = SetNamedPipeHandleState(
-            m_pipe,    // pipe handle 
-            &mode,  // new pipe mode 
-            NULL,     // don't set maximum bytes 
-            NULL);    // don't set maximum time 
-        if (success == false)
-        {
-            throw std::exception("[CustomClient::CustomClient()] Failed to change a named pipe state.");
-        }
-    }
-}
-
-std::wstring CustomClient::Recieve()
-{
-    std::wstring result = TEXT("");
-
-    if (m_is_connected)
-    {
-        TCHAR read_buffer[DEFAULT_BUFSIZE] = { '\0' };
-        DWORD bytes_processed = 0;
-
-        bool reading_success = ReadFile(
-            m_pipe,
-            read_buffer,
-            DEFAULT_BUFSIZE * sizeof(TCHAR),
-            &bytes_processed,
-            nullptr);
-
-        if (!reading_success)
-        {
-            throw std::exception("[CustomClient::Recieve()] Error while reading client message.");
-        }
-
-        result = (read_buffer);
-    }
-    else
-    {
-        std::cout << "Pipe not connected. Can not read data from it.";
-        std::cout << "Empty data was returned." << std::endl;
-    }
-
-    return result;
-}
-
-void CustomClient::Send(const std::wstring& message)
-{
-    if (m_is_connected)
-    {
-        DWORD bytes_processed = 0;
-
-        bool writing_success = WriteFile(
-            m_pipe,
-            message.c_str(),
-            DEFAULT_BUFSIZE * sizeof(TCHAR),
-            &bytes_processed,
-            nullptr);
-
-        if (!writing_success)
-        {
-            throw std::exception("[CustomClient::Send()] Error while writing server message.");
-        }
-        else
-        {
-            std::cout << bytes_processed << " bytes of data was sent. ";
-            std::wcout << "[TRANSFERED TEXT] = " << message << std::endl;
-        }
-    }
-    else
-    {
-        std::cout << "Pipe not connected. Can not send data to it.";
-    }
-}
-**/
-
-//static const LPCTSTR PIPE_NAME = TEXT("\\\\.\\pipe\\mynamedpipe");
-static const DWORD PIPE_OPEN_MODE = GENERIC_READ | GENERIC_WRITE;
-static const DWORD SHARING_MODE = NULL;
+static const DWORD SHARING_MODE = FILE_SHARE_READ | FILE_SHARE_WRITE;
 static const LPSECURITY_ATTRIBUTES PIPE_SECURITY_SETTINGS = nullptr;
 static const DWORD EXISTING_PROPERTIES = OPEN_EXISTING;
 static const DWORD PIPE_SETTINGS = NULL;
@@ -167,131 +10,178 @@ static const HANDLE TEMPLATE_FILE = NULL;
 static const unsigned int MAX_NUMBER_OF_TRIES = 5;
 static const DWORD TIMEOUT_MILISEC = 5000;
 
-CustomClient::CustomClient(const std::wstring& l_pipe_name):
-    CustomNetworkAgent(l_pipe_name)
+CustomAsynchClient::CustomAsynchClient(const std::wstring& pipe_path,
+    const DWORD capacity) :
+    CustomAsynchNetworkAgent(pipe_path, capacity)
 {
-
-}
-
-CustomClient::~CustomClient()
-{
-    Disconnect();
-}
-
-bool CustomClient::Disconnect()
-{
-    if (m_is_connected == true)
+    for (DWORD index = 0; index < m_capacity; index++)
     {
-        CloseHandle(m_pipe);
-        m_is_connected = false;
-    }
-    
-    return !m_is_connected;
-}
+        m_event[index] = CreateEvent(NULL, TRUE, TRUE, NULL);
 
-bool CustomClient::Connect()
-{
-    if (m_is_connected == false)
-    {
-        std::cout << "[CustomClient::Connect()] Trying to connect to server..." << std::endl;
-
-        m_pipe = CreateFile(
-            m_pipe_name.c_str(),   // pipe name 
-            PIPE_OPEN_MODE,  // read and write access ,
-            SHARING_MODE,              // no sharing 
-            PIPE_SECURITY_SETTINGS,           // default security attributes
-            EXISTING_PROPERTIES,  // opens existing pipe 
-            PIPE_SETTINGS,              // default attributes 
-            TEMPLATE_FILE);
-
-        bool is_file_created = (m_pipe != INVALID_HANDLE_VALUE);
-
-        if (is_file_created == true)
+        if (m_event[index] == NULL)
         {
-            std::cout << "[CustomClient::Connect()] Successfuly connected to server.";
-            std::cout << "Trying to change pipe configuration for message exchange..." << std::endl;
+            std::stringstream error_message;
 
-            DWORD pipe_mode = PIPE_READMODE_MESSAGE;
-            m_is_connected = SetNamedPipeHandleState(
-                m_pipe,    // pipe handle 
-                &pipe_mode,  // new pipe mode 
-                NULL,     // don't set maximum bytes 
-                NULL);
+            error_message << "[CustomServer::CustomServer()->CreateEvent()] ";
+            error_message << "Failed to create an event object with GLE = ";
+            error_message << GetLastError() << "." << std::endl;
 
-            if (m_is_connected == true)
-            {
-                std::cout << "[CustomClient::Connect()] Pipe configuration successfuly changed.";
-                std::cout << std::endl;
-            }
-            else
-            {
-                std::cout << "[CustomClient::Connect()] Fail to change pipe configuration." << std::endl;
-            }
+            throw std::exception(error_message.str().c_str());
+        }
+
+        m_overlapped[index].hEvent = m_event[index];
+
+        //ConstructConnect(m_pipe[index]);
+
+        //m_state[index] = Server_State::Connected;
+        initConnect(index);
+    }
+}
+
+CustomAsynchClient::~CustomAsynchClient()
+{
+}
+
+/**
+void CustomAsynchClient::ConstructConnect(HANDLE& l_pipe)
+{
+    std::cout << "[CustomClient::Connect()] Trying to connect to server..." << std::endl;
+
+    l_pipe = CreateFile(
+        m_pipe_path.c_str(),   // pipe name
+        PIPE_OPEN_MODE,  // read and write access ,
+        SHARING_MODE,              // no sharing
+        PIPE_SECURITY_SETTINGS,           // default security attributes
+        EXISTING_PROPERTIES,  // opens existing pipe
+        PIPE_SETTINGS,              // default attributes
+        TEMPLATE_FILE);
+
+    bool is_file_created = (l_pipe != INVALID_HANDLE_VALUE);
+
+    if (is_file_created == true)
+    {
+        std::cout << "[CustomAsynchClient::ConstructConnect()] Successfuly connected to server.";
+        std::cout << "Trying to change pipe configuration for message exchange..." << std::endl;
+
+        DWORD pipe_mode = PIPE_READMODE_MESSAGE;
+        bool is_connected = SetNamedPipeHandleState(
+            l_pipe,    // pipe handle
+            &pipe_mode,  // new pipe mode
+            NULL,     // don't set maximum bytes
+            NULL);
+
+        if (is_connected == true)
+        {
+            std::cout << "[CustomAsynchClient::ConstructConnect()]";
+            std::cout << " Pipe configuration successfuly changed.";
+            std::cout << std::endl;
         }
         else
         {
-            std::cout << "[CustomClient::Connect()] Failed to connect to server." << std::endl;
+            std::stringstream error_message;
+
+            error_message << "[CustomAsynchClient::ConstructConnect()] ";
+            error_message << "Failed to create a named pipe object with GLE = ";
+            error_message << GetLastError() << "." << std::endl;
+
+            throw std::exception(error_message.str().c_str());
         }
     }
     else
     {
-        std::cout << "[CustomClient::Connect()] Client already connected." << std::endl;
+        std::stringstream error_message;
+
+        error_message << "[CustomAsynchClient::ConstructConnect()] ";
+        error_message << "Failed to create a named pipe object with GLE = ";
+        error_message << GetLastError() << "." << std::endl;
+
+        throw std::exception(error_message.str().c_str());
     }
+}
+**/
 
-    return m_is_connected;
+void CustomAsynchClient::initConnect(const DWORD index)
+{
+    m_mutex.lock();
 
-    /**if (m_is_connected == false)
+    //TRYING TO CONNECT A NAMED PIPE
+
+    m_pipe[index] = CreateFile(m_pipe_path.c_str(),   // pipe name 
+        PIPE_OPEN_MODE,  // read and write access ,
+        SHARING_MODE,              // no sharing 
+        PIPE_SECURITY_SETTINGS,           // default security attributes
+        EXISTING_PROPERTIES,  // opens existing pipe 
+        PIPE_SETTINGS,              // default attributes 
+        TEMPLATE_FILE);
+
+    bool is_connection_succeed = (m_pipe[index] != INVALID_HANDLE_VALUE);
+
+    if (is_connection_succeed == true)
     {
-        m_pipe = CreateFile(
-            m_pipe_name.c_str(),   // pipe name 
-            PIPE_OPEN_MODE,  // read and write access ,
-            SHARING_MODE,              // no sharing 
-            PIPE_SECURITY_SETTINGS,           // default security attributes
-            EXISTING_PROPERTIES,  // opens existing pipe 
-            PIPE_SETTINGS,              // default attributes 
-            TEMPLATE_FILE);
+        std::cout << "[CustomAsynchClient::ConstructConnect()] Successfuly connected to server.";
+        std::cout << "Trying to change pipe configuration for message exchange..." << std::endl;
 
-        //Check if client succesfully connected
-        if (m_pipe != INVALID_HANDLE_VALUE)
-        {
-            m_is_connected = true;
-            //break;
-        }
-
-        //Check that the reason of connection error was because of pipe business
-        if (GetLastError() != ERROR_PIPE_BUSY)
-        {
-            throw std::exception("[CustomClient::Connect()] False error reason when connect to a named pipe.");
-        }
-
-        //Wait to connect again
-        
-        if (WaitNamedPipe(m_pipe_name.c_str(), TIMEOUT_MILISEC) == NULL)
-        {
-            throw std::exception("[CustomClient::Connect()] Error while waiting named pipe to connect.");
-        }
-        
-    }
-
-    //Final check
-    if (m_pipe == INVALID_HANDLE_VALUE)
-    {
-        throw std::exception("[CustomClient::Connect()] Failed to connect to a named pipe.");
-    }
-    else
-    {
-        m_is_connected = true;
-
-        DWORD mode = PIPE_READMODE_MESSAGE;
-        bool success = SetNamedPipeHandleState(
-            m_pipe,    // pipe handle 
-            &mode,  // new pipe mode 
+        DWORD pipe_mode = PIPE_READMODE_MESSAGE;
+        bool is_connected = SetNamedPipeHandleState(m_pipe[index],    // pipe handle 
+            &pipe_mode,  // new pipe mode 
             NULL,     // don't set maximum bytes 
-            NULL);    // don't set maximum time 
-        if (success == false)
+            NULL);
+
+        if (is_connected == true)
         {
-            throw std::exception("[CustomClient::Connect()] Failed to change a named pipe state.");
+            std::cout << "[CustomAsynchClient::ConstructConnect()]";
+            std::cout << " Pipe configuration successfuly changed.";
+            std::cout << std::endl;
+
+            m_state[index] = Server_State::Connected;
         }
+        else
+        {
+            std::stringstream error_message;
+
+            error_message << "[CustomAsynchClient::ConstructConnect()] ";
+            error_message << "Failed to create a named pipe object with GLE = ";
+            error_message << GetLastError() << "." << std::endl;
+
+            throw std::exception(error_message.str().c_str());
+        }
+
+        /**
+        switch (GetLastError())
+        {
+        case ERROR_IO_PENDING:
+            //CONNECTION WAS PENDED -> SWITCH TO CONNECTION_PENDED STATE
+
+            std::cout << "[SERVICE INFO] ";
+            std::cout << "Connection was pended on a named pipe with index = ";
+            std::cout << index << std::endl;
+
+            m_state[index] = Server_State::Connection_Pended;
+
+            break;
+        case ERROR_PIPE_CONNECTED:
+            //PIPE ALREADY CONNECTED -> TRY TO SET AN EVENT
+
+            m_state[index] = Server_State::Connected;
+
+            break;
+        default:
+
+
+            std::cout << "[CustomServer::InitConnect()->ConnectNamedPipe()] ";
+            std::cout << "Unknown error occured on a named pipe with index = " << index;
+            std::cout << " with GLE = " << GetLastError() << "." << std::endl;
+
+            break;
+        }
+        **/
     }
-    **/
+    else
+    {
+        std::cout << "[CustomServer::CustomServer()->ConnectNamedPipe()] ";
+        std::cout << "Failed to connect a named pipe with index = " << index;
+        std::cout << " with GLE = " << GetLastError() << "." << std::endl;
+    }
+
+    m_mutex.unlock();
 }

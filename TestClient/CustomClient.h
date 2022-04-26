@@ -35,13 +35,12 @@ private:
 
 #include <TestLib/CustomNetworkAgent.h>
 
-class CustomClient final : public CustomNetworkAgent
+class CustomAsynchClient : public CustomAsynchNetworkAgent
 {
 public:
-	CustomClient(const std::wstring& l_pipe_name);
-	virtual ~CustomClient();
-
-	virtual bool Connect() override;
-	virtual bool Disconnect() override;
-private:
+	CustomAsynchClient(const std::wstring& pipe_path,
+		const DWORD capacity = 1);
+	~CustomAsynchClient();
+protected:
+	void initConnect(const DWORD index) override;
 };
