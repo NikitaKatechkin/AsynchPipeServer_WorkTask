@@ -10,6 +10,7 @@
 
 #include <sstream>
 #include <mutex>
+#include <memory>
 
 class CustomAsynchNetworkAgent
 {
@@ -82,20 +83,20 @@ protected:
 
 	//PIPE SERVER PART
 
-	Server_State* m_state = nullptr;
-	HANDLE* m_pipe = nullptr;
-	OVERLAPPED* m_overlapped = NULL;
-	HANDLE* m_event = nullptr;
+	std::unique_ptr<Server_State[]> m_state;
+	std::unique_ptr<HANDLE[]> m_pipe;
+	std::unique_ptr<OVERLAPPED[]> m_overlapped;
+	std::unique_ptr<HANDLE[]> m_event;
 
 	//READ || WRITE PART
 
 	DWORD m_bufsize = 0;
 
-	TCHAR** m_requestBuffers = nullptr;
-	DWORD* m_bytesRead = nullptr;
+	std::unique_ptr<std::unique_ptr<TCHAR[]>[]> m_requestBuffers;
+	std::unique_ptr<DWORD[]> m_bytesRead;
 
-	TCHAR** m_replyBuffers = nullptr;
-	DWORD* m_bytesWritten = nullptr;
+	std::unique_ptr<std::unique_ptr<TCHAR[]>[]> m_replyBuffers;
+	std::unique_ptr<DWORD[]> m_bytesWritten;
 
 	//CALLBACKS PART
 

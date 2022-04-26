@@ -8,22 +8,22 @@ CustomAsynchNetworkAgent::CustomAsynchNetworkAgent(const std::wstring& pipePath,
     m_bufsize(bufsize)
 {
     //ALLOCATING MEMORY START
-    m_state = new Server_State[m_capacity]{ Server_State::Non_Initialized };
-    m_event = new HANDLE[m_capacity]{ INVALID_HANDLE_VALUE };
+    m_state = std::make_unique<Server_State[]>(m_capacity);
+    m_event = std::make_unique<HANDLE[]>(m_capacity);
 
-    m_pipe = new HANDLE[m_capacity]{ INVALID_HANDLE_VALUE };
-    m_overlapped = new OVERLAPPED[m_capacity]{ NULL };
+    m_pipe = std::make_unique<HANDLE[]>(m_capacity);
+    m_overlapped = std::make_unique<OVERLAPPED[]>(m_capacity);
 
-    m_requestBuffers = new TCHAR * [m_capacity] { nullptr };
-    m_bytesRead = new DWORD[m_capacity]{ 0 };
+    m_requestBuffers = std::make_unique<std::unique_ptr<TCHAR[]>[]>(m_capacity);
+    m_bytesRead = std::make_unique<DWORD[]>(m_capacity);
 
-    m_replyBuffers = new TCHAR * [m_capacity] { nullptr };
-    m_bytesWritten = new DWORD[m_capacity]{ 0 };
+    m_replyBuffers = std::make_unique<std::unique_ptr<TCHAR[]>[]>(m_capacity);
+    m_bytesWritten = std::make_unique<DWORD[]>(m_capacity);
 
     for (DWORD index = 0; index < m_capacity; index++)
     {
-        m_requestBuffers[index] = new TCHAR[m_bufsize]{ '\0' };
-        m_replyBuffers[index] = new TCHAR[m_bufsize]{ '\0' };
+        m_requestBuffers[index] = std::unique_ptr<TCHAR[]>(new TCHAR[m_bufsize]);
+        m_replyBuffers[index] = std::unique_ptr<TCHAR[]>(new TCHAR[m_bufsize]);
     }
     //ALLOCATING MEMORY END
 
@@ -63,17 +63,6 @@ CustomAsynchNetworkAgent::~CustomAsynchNetworkAgent()
         this->stop();
     }
 
-    delete[] m_state;
-    delete[] m_event;
-
-    for (DWORD index = 0; index < m_capacity; index++)
-    {
-        delete[] m_requestBuffers[index];
-        delete[] m_replyBuffers[index];
-    }
-    delete[] m_requestBuffers;
-    delete[] m_replyBuffers;
-
     for (DWORD index = 0; index < m_capacity; index++)
     {
         DisconnectNamedPipe(m_pipe[index]);
@@ -83,12 +72,6 @@ CustomAsynchNetworkAgent::~CustomAsynchNetworkAgent()
             CloseHandle(m_pipe[index]);
         }
     }
-    delete[] m_pipe;
-
-    delete[] m_overlapped;
-
-    delete[] m_bytesRead;
-    delete[] m_bytesWritten;
 }
 
 void CustomAsynchNetworkAgent::run()
@@ -205,7 +188,7 @@ bool CustomAsynchNetworkAgent::write(const DWORD index,
         m_callbackDstBytesWritten = bytesWritten;
     }
 
-    StringCchCopy(m_replyBuffers[index], m_bufsize,
+    StringCchCopy(m_replyBuffers[index].get(), m_bufsize,
         message.c_str());
 
     m_state[index] = Server_State::Writing_Signaled;
@@ -278,7 +261,7 @@ void CustomAsynchNetworkAgent::processLoop()
 bool CustomAsynchNetworkAgent::waitForEvent(DWORD index)
 {
     index = WaitForMultipleObjects(m_capacity,
-        m_event,
+        m_event.get(),
         FALSE,
         INFINITE);
 
@@ -310,7 +293,7 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
 
     //TRYING TO READ A MESSAGE FROM A NAMED PIPE
     is_success = ReadFile(m_pipe[index],
-        m_requestBuffers[index],
+        m_requestBuffers[index].get(),
         m_bufsize * sizeof(TCHAR),
         &bytes_processed,
         &m_overlapped[index]);
@@ -327,7 +310,7 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
         m_bytesRead[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
-        *m_readCallbackDstBuffer = m_requestBuffers[index];
+        *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
         *m_callbackDstBytesRead = m_bytesRead[index];
         if (m_readCallback != nullptr)
         {
@@ -401,7 +384,7 @@ void CustomAsynchNetworkAgent::initWrite(const DWORD index)
     bool is_success = false;
 
     is_success = WriteFile(m_pipe[index],
-        m_replyBuffers[index],
+        m_replyBuffers[index].get(),
         m_bufsize * sizeof(TCHAR),
         &bytes_processed,
         &m_overlapped[index]);
@@ -495,7 +478,7 @@ void CustomAsynchNetworkAgent::OnPended(const DWORD index)
                     m_bytesRead[index] = bytes_processed;
 
                     //TO-DO: HERE SHOULD BE CALLBACK()
-                    *m_readCallbackDstBuffer = m_requestBuffers[index];
+                    *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
                     *m_callbackDstBytesRead = m_bytesRead[index];
                     if (m_readCallback != nullptr)
                     {
