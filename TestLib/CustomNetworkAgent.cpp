@@ -234,7 +234,8 @@ void CustomAsynchNetworkAgent::processLoop()
 
             break;
         case Server_State::Connection_Pended:
-            OnConnect(index);
+            //OnConnect(index);
+            OnPended(index);
 
             break;
         case Server_State::Connected:
@@ -242,15 +243,17 @@ void CustomAsynchNetworkAgent::processLoop()
 
             break;
         case Server_State::Reading_Pended:
-            OnRead(index);
-            //exit_tmp_flag = true;
+            //OnRead(index);
+            OnPended(index);
+
             break;
         case Server_State::Reading_Signaled:
             initRead(index);
             //exit_tmp_flag = true;
             break;
         case Server_State::Writing_Pended:
-            OnWrite(index);
+            //OnWrite(index);
+            OnPended(index);
 
             break;
         case Server_State::Writing_Signaled:
@@ -288,6 +291,7 @@ bool CustomAsynchNetworkAgent::waitForEvent(DWORD index)
     return (index < m_capacity);
 }
 
+/**
 void CustomAsynchNetworkAgent::OnConnect(const DWORD index)
 {
     m_serviceOperationMutex.lock();
@@ -322,6 +326,7 @@ void CustomAsynchNetworkAgent::OnConnect(const DWORD index)
 
     m_serviceOperationMutex.unlock();
 }
+**/
 
 void CustomAsynchNetworkAgent::initRead(const DWORD index)
 {
@@ -384,6 +389,7 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
     m_serviceOperationMutex.unlock();
 }
 
+/**
 void CustomAsynchNetworkAgent::OnRead(const DWORD index)
 {
     m_serviceOperationMutex.lock();
@@ -425,6 +431,7 @@ void CustomAsynchNetworkAgent::OnRead(const DWORD index)
 
     m_serviceOperationMutex.unlock();
 }
+**/
 
 void CustomAsynchNetworkAgent::initWrite(const DWORD index)
 {
@@ -483,6 +490,7 @@ void CustomAsynchNetworkAgent::initWrite(const DWORD index)
     m_serviceOperationMutex.unlock();
 }
 
+/**
 void CustomAsynchNetworkAgent::OnWrite(const DWORD index)
 {
     m_serviceOperationMutex.lock();
@@ -517,6 +525,90 @@ void CustomAsynchNetworkAgent::OnWrite(const DWORD index)
         //TO-DO: HERE SHOULD BE RECONNECT()
         std::cout << "[CustomServer::PendedRead()->GetOverlappedResult()] ";
         std::cout << "Failed to write data on a named pipe with index = " << index;
+        std::cout << " with GLE = " << GetLastError() << "." << std::endl;
+    }
+
+    m_serviceOperationMutex.unlock();
+}
+**/
+
+void CustomAsynchNetworkAgent::OnPended(const DWORD index)
+{
+    m_serviceOperationMutex.lock();
+
+    DWORD bytes_processed = 0;
+    bool is_finished = false;
+
+    is_finished = GetOverlappedResult(m_pipe[index],
+        &m_overlapped[index],
+        &bytes_processed,
+        FALSE);
+
+    if (is_finished == true)
+    {
+        switch (m_state[index])
+        {
+            case Server_State::Connection_Pended:
+            {
+                m_state[index] = Server_State::Connected;
+
+                break;
+            }
+            case Server_State::Reading_Pended:
+            {
+                if (bytes_processed != 0)
+                {
+                    //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
+                    m_bytesRead[index] = bytes_processed;
+
+                    //TO-DO: HERE SHOULD BE CALLBACK()
+                    *m_readCallbackDstBuffer = m_requestBuffers[index];
+                    *m_callbackDstBytesRead = m_bytesRead[index];
+                    if (m_readCallback != nullptr)
+                    {
+                        m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+                    }
+
+                    //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
+
+                    m_state[index] = Server_State::Connected;
+                }
+
+                break;
+            }
+            case Server_State::Writing_Pended:
+            {
+                if (bytes_processed == m_bufsize)
+                {
+                    // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
+                    m_bytesWritten[index] = bytes_processed;
+
+                    //TO-DO: HERE SHOULD BE CALLBACK()
+                    *m_callbackDstBytesWritten = m_bytesWritten[index];
+
+                    if (m_writeCallback != nullptr)
+                    {
+                        m_writeCallback(*m_callbackDstBytesWritten);
+                    }
+
+                    m_state[index] = Server_State::Connected;
+                }
+
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        // ERROR WAS OCCURED WHILE PERFORM PENDED OPERATION
+
+        //TO-DO: HERE SHOULD BE RECONNECT()
+        std::cout << "[CustomServer::PendedRead()->GetOverlappedResult()] ";
+        std::cout << "Failed to read data on a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 
