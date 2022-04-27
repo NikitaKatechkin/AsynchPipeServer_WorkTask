@@ -11,5 +11,5 @@ public:
 	virtual ~CustomAsynchServer() = default;
 
 protected:
-	virtual void initConnect(const DWORD index) override;
+	virtual void initConnect(const DWORD index = 0) override;
 };

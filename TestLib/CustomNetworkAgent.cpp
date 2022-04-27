@@ -1,8 +1,8 @@
 #include "CustomNetworkAgent.h"
 
 CustomAsynchNetworkAgent::CustomAsynchNetworkAgent(const std::wstring& pipePath,
-                                                   const DWORD capacity, 
-                                                   const DWORD bufsize) :
+    const DWORD capacity,
+    const DWORD bufsize) :
     m_pipePath(pipePath),
     m_capacity(capacity),
     m_bufsize(bufsize)
@@ -31,23 +31,17 @@ CustomAsynchNetworkAgent::CustomAsynchNetworkAgent(const std::wstring& pipePath,
     for (DWORD index = 0; index < m_capacity; index++)
     {
         m_event[index] = CreateEvent(NULL, TRUE, TRUE, NULL);
-
         if (m_event[index] == NULL)
         {
             std::stringstream error_message;
-
             error_message << "[CustomServer::CustomServer()->CreateEvent()] ";
             error_message << "Failed to create an event object with GLE = ";
             error_message << GetLastError() << "." << std::endl;
-
             throw std::exception(error_message.str().c_str());
         }
-
         m_overlapped[index].hEvent = m_event[index];
-
         //this->ConstructConnect(m_pipe[index]);
         ConstructConnect(m_pipe[index]);
-
         initConnect(index);
     }
     **/
@@ -109,7 +103,6 @@ void CustomAsynchNetworkAgent::stop()
                 break;
             }
         }
-
         if (is_all_pipe_handled == true)
         {
             m_is_server_running = false;
@@ -124,10 +117,10 @@ void CustomAsynchNetworkAgent::stop()
     m_processLoopThread.join();
 }
 
-bool CustomAsynchNetworkAgent::read(const DWORD index,
-                                    std::wstring* buffer,
+bool CustomAsynchNetworkAgent::read(std::wstring* buffer,
                                     DWORD* bytesRead,
-                                    ReadCallback readCallback)
+                                    ReadCallback readCallback, 
+                                    const DWORD index)
 {
     if (m_state[index] != Server_State::Connected)
     {
@@ -145,11 +138,12 @@ bool CustomAsynchNetworkAgent::read(const DWORD index,
 
     m_serviceOperationMutex.lock();
 
+
+    m_readCallbackDstBuffer = buffer;
+    m_callbackDstBytesRead = bytesRead;
     if (readCallback != nullptr)
     {
         m_readCallback = readCallback;
-        m_readCallbackDstBuffer = buffer;
-        m_callbackDstBytesRead = bytesRead;
     }
 
     m_state[index] = Server_State::Reading_Signaled;
@@ -161,10 +155,10 @@ bool CustomAsynchNetworkAgent::read(const DWORD index,
     return true;
 }
 
-bool CustomAsynchNetworkAgent::write(const DWORD index, 
-                                     const std::wstring& message,
+bool CustomAsynchNetworkAgent::write(const std::wstring& message,
                                      DWORD* bytesWritten,
-                                     WriteCallback writeCallback)
+                                     WriteCallback writeCallback, 
+                                     const DWORD index)
 {
     if (m_state[index] != Server_State::Connected)
     {
@@ -182,10 +176,10 @@ bool CustomAsynchNetworkAgent::write(const DWORD index,
 
     m_serviceOperationMutex.lock();
 
+    m_callbackDstBytesWritten = bytesWritten;
     if (writeCallback != nullptr)
     {
         this->m_writeCallback = writeCallback;
-        m_callbackDstBytesWritten = bytesWritten;
     }
 
     StringCchCopy(m_replyBuffers[index].get(), m_bufsize,
@@ -258,7 +252,7 @@ void CustomAsynchNetworkAgent::processLoop()
     }
 }
 
-bool CustomAsynchNetworkAgent::waitForEvent(DWORD index)
+bool CustomAsynchNetworkAgent::waitForEvent(DWORD& index)
 {
     index = WaitForMultipleObjects(m_capacity,
         m_event.get(),
@@ -462,70 +456,70 @@ void CustomAsynchNetworkAgent::OnPended(const DWORD index)
 
         switch (m_state[index])
         {
-            case Server_State::Connection_Pended:
+        case Server_State::Connection_Pended:
+        {
+
+            m_state[index] = Server_State::Connected;
+
+            break;
+        }
+        case Server_State::Reading_Pended:
+        {
+            if (bytes_processed != 0)
             {
+
+                //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
+                m_bytesRead[index] = bytes_processed;
+
+                //TO-DO: HERE SHOULD BE CALLBACK()
+                *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
+                *m_callbackDstBytesRead = m_bytesRead[index];
+                if (m_readCallback != nullptr)
+                {
+                    m_printLogMutex.lock();
+
+                    m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+
+                    m_printLogMutex.unlock();
+                }
+
+                //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
+
+                m_state[index] = Server_State::Connected;
+            }
+
+            break;
+        }
+        case Server_State::Writing_Pended:
+        {
+            if (bytes_processed == m_bufsize)
+            {
+                // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
+                m_bytesWritten[index] = bytes_processed;
+
+                //TO-DO: HERE SHOULD BE CALLBACK()
+                *m_callbackDstBytesWritten = m_bytesWritten[index];
+
+                if (m_writeCallback != nullptr)
+                {
+                    m_printLogMutex.lock();
+
+                    m_writeCallback(*m_callbackDstBytesWritten);
+
+                    m_printLogMutex.unlock();
+                }
 
                 m_state[index] = Server_State::Connected;
 
-                break;
+
             }
-            case Server_State::Reading_Pended:
-            {
-                if (bytes_processed != 0)
-                {
 
-                    //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-                    m_bytesRead[index] = bytes_processed;
-
-                    //TO-DO: HERE SHOULD BE CALLBACK()
-                    *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
-                    *m_callbackDstBytesRead = m_bytesRead[index];
-                    if (m_readCallback != nullptr)
-                    {
-                        m_printLogMutex.lock();
-
-                        m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
-
-                        m_printLogMutex.unlock();
-                    }
-
-                    //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
-
-                    m_state[index] = Server_State::Connected;
-                }
-
-                break;
-            }
-            case Server_State::Writing_Pended:
-            {
-                if (bytes_processed == m_bufsize)
-                {
-                    // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
-                    m_bytesWritten[index] = bytes_processed;
-
-                    //TO-DO: HERE SHOULD BE CALLBACK()
-                    *m_callbackDstBytesWritten = m_bytesWritten[index];
-
-                    if (m_writeCallback != nullptr)
-                    {
-                        m_printLogMutex.lock();
-
-                        m_writeCallback(*m_callbackDstBytesWritten);
-
-                        m_printLogMutex.unlock();
-                    }
-
-                    m_state[index] = Server_State::Connected;
-
-                    
-                }
-
-                break;
-            }
-            default:
-            {
-                break;
-            }
+            break;
+        }
+        default:
+        {
+            break;
+        }
         }
 
         m_serviceOperationMutex.unlock();
@@ -587,4 +581,3 @@ void CustomAsynchNetworkAgent::OnPended(const DWORD index)
         m_serviceOperationMutex.unlock();
     }
 }
-

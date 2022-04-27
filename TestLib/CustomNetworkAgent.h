@@ -20,8 +20,8 @@ public:
 
 public:
 	CustomAsynchNetworkAgent(const std::wstring& pipePath,
-							 const DWORD capacity,
-							 const DWORD bufsize = 512);
+		const DWORD capacity,
+		const DWORD bufsize = 512);
 	virtual ~CustomAsynchNetworkAgent();
 
 	void run();
@@ -29,15 +29,15 @@ public:
 
 	//ALL METHODS BELOW SHOULD BE MUTEX
 
-	bool read(const DWORD index,
-			  std::wstring* buffer = nullptr, //Change type -> TCHAR*
+	bool read(std::wstring* buffer = nullptr, //Change type -> TCHAR*
 			  DWORD* bytesRead = nullptr,
-			  ReadCallback readCallback = nullptr);
+			  ReadCallback readCallback = nullptr, 
+			  const DWORD index = 0);
 
-	bool write(const DWORD index, 
-			   const std::wstring& message, //Change type -> TCHAR*
+	bool write(const std::wstring& message, //Change type -> TCHAR*
 			   DWORD* bytesWritten = nullptr,
-			   WriteCallback writeCallback = nullptr);
+			   WriteCallback writeCallback = nullptr, 
+			   const DWORD index = 0);
 
 protected:
 	enum class Server_State
@@ -57,15 +57,15 @@ protected:
 
 	void processLoop();
 
-	bool waitForEvent(DWORD index);
+	bool waitForEvent(DWORD& index);
 
-	virtual void initConnect(const DWORD index) = 0;
+	virtual void initConnect(const DWORD index = 0) = 0;
 
-	void initRead(const DWORD index);
+	void initRead(const DWORD index = 0);
 
-	void initWrite(const DWORD index);
+	void initWrite(const DWORD index = 0);
 
-	void OnPended(const DWORD index);
+	void OnPended(const DWORD index = 0);
 protected:
 	//MULTITHREADING PART
 
