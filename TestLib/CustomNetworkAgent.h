@@ -65,7 +65,16 @@ protected:
 
 	void initWrite(const DWORD index = 0);
 
-	void OnPended(const DWORD index = 0);
+	//void OnPended(const DWORD index = 0);
+
+	bool OnPended(DWORD* bytes_processed, const DWORD index = 0);
+
+	void OnConnect(const DWORD index = 0);
+
+	void OnRead(const DWORD index = 0);
+
+	void OnWrite(const DWORD index = 0);
+
 protected:
 	//MULTITHREADING PART
 

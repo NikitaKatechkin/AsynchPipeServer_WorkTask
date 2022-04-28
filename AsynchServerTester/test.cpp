@@ -20,16 +20,6 @@ TEST(CustomAsynchServerTestCase, CreateTest)
 	{
 		FAIL();
 	}
-
-	/**
-	HANDLE client = CreateFile(L"\\\\.\\pipe\\mynamedpipe",
-							   GENERIC_READ | GENERIC_WRITE,
-							   FILE_SHARE_READ | FILE_SHARE_WRITE,
-							   nullptr,
-							   OPEN_EXISTING,
-							   NULL,
-							   NULL);
-	**/
 }
 
 TEST(CustomAsynchServerTestCase, RunStopTest)
@@ -60,7 +50,7 @@ TEST(CustomAsynchServerTestCase, RunStopTest)
 	CloseHandle(client);
 }
 
-TEST(CustomAsynchClientTestCase, ReadTest)
+TEST(CustomAsynchServerTestCase, ReadTest)
 {
 	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
 
@@ -110,7 +100,7 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 	CloseHandle(client);
 }
 
-TEST(CustomAsynchClientTestCase, WriteTest)
+TEST(CustomAsynchServerTestCase, WriteTest)
 {
 	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
 
