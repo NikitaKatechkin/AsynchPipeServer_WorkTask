@@ -117,7 +117,7 @@ void CustomAsynchNetworkAgent::stop()
     m_processLoopThread.join();
 }
 
-bool CustomAsynchNetworkAgent::read(std::wstring* buffer,
+bool CustomAsynchNetworkAgent::read(TCHAR* buffer,
                                     DWORD* bytesRead,
                                     ReadCallback readCallback, 
                                     const DWORD index)
@@ -155,7 +155,7 @@ bool CustomAsynchNetworkAgent::read(std::wstring* buffer,
     return true;
 }
 
-bool CustomAsynchNetworkAgent::write(const std::wstring& message,
+bool CustomAsynchNetworkAgent::write(const TCHAR* message,
                                      DWORD* bytesWritten,
                                      WriteCallback writeCallback, 
                                      const DWORD index)
@@ -182,8 +182,11 @@ bool CustomAsynchNetworkAgent::write(const std::wstring& message,
         this->m_writeCallback = writeCallback;
     }
 
-    StringCchCopy(m_replyBuffers[index].get(), m_bufsize,
-        message.c_str());
+    //StringCchCopy(m_replyBuffers[index].get(), m_bufsize,
+    //              message);
+
+    memcpy_s(m_replyBuffers[index].get(), m_bufsize * sizeof(TCHAR),
+             message, m_bufsize * sizeof(TCHAR));
 
     m_state[index] = Server_State::Writing_Signaled;
 
@@ -304,13 +307,15 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
         m_bytesRead[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
-        *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
+        //*m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
+        memcpy_s(m_readCallbackDstBuffer, m_bufsize * sizeof(TCHAR), 
+                 m_requestBuffers[index].get(), m_bufsize * sizeof(TCHAR));
         *m_callbackDstBytesRead = m_bytesRead[index];
         if (m_readCallback != nullptr)
         {
             m_printLogMutex.lock();
 
-            m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+            m_readCallback(m_readCallbackDstBuffer, *m_callbackDstBytesRead);
 
             m_printLogMutex.unlock();
         }
@@ -638,12 +643,13 @@ void CustomAsynchNetworkAgent::OnRead(const DWORD index)
             m_bytesRead[index] = *m_callbackDstBytesRead;
 
             //TO-DO: HERE SHOULD BE CALLBACK()
-            *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
+            memcpy_s(m_readCallbackDstBuffer, m_bufsize * sizeof(TCHAR),
+                     m_requestBuffers[index].get(), m_bufsize * sizeof(TCHAR));
             if (m_readCallback != nullptr)
             {
                 m_printLogMutex.lock();
 
-                m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+                m_readCallback(m_readCallbackDstBuffer, *m_callbackDstBytesRead);
 
                 m_printLogMutex.unlock();
             }
@@ -655,12 +661,12 @@ void CustomAsynchNetworkAgent::OnRead(const DWORD index)
     }
     else
     {
-        *m_readCallbackDstBuffer = L"";
+        m_readCallbackDstBuffer = nullptr;
         if (m_readCallback != nullptr)
         {
             m_printLogMutex.lock();
 
-            m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+            m_readCallback(m_readCallbackDstBuffer, *m_callbackDstBytesRead);
 
             m_printLogMutex.unlock();
         }

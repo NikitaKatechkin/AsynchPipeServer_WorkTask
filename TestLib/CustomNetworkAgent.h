@@ -15,7 +15,7 @@
 class CustomAsynchNetworkAgent
 {
 public:
-	using ReadCallback = void(*)(const std::wstring& bufferRead, const DWORD bytesRead);
+	using ReadCallback = void(*)(const TCHAR* bufferRead, const DWORD bytesRead);
 	using WriteCallback = void(*)(const DWORD bytesWritten);
 
 public:
@@ -29,12 +29,12 @@ public:
 
 	//ALL METHODS BELOW SHOULD BE MUTEX
 
-	bool read(std::wstring* buffer = nullptr, //Change type -> TCHAR*
+	bool read(TCHAR* buffer = nullptr, //Change type -> TCHAR*
 			  DWORD* bytesRead = nullptr,
 			  ReadCallback readCallback = nullptr, 
 			  const DWORD index = 0);
 
-	bool write(const std::wstring& message, //Change type -> TCHAR*
+	bool write(const TCHAR* message, //Change type -> TCHAR*
 			   DWORD* bytesWritten = nullptr,
 			   WriteCallback writeCallback = nullptr, 
 			   const DWORD index = 0);
@@ -110,7 +110,8 @@ protected:
 	//CALLBACKS PART
 
 	ReadCallback m_readCallback = nullptr;
-	std::wstring* m_readCallbackDstBuffer = nullptr;
+	//std::wstring* m_readCallbackDstBuffer = nullptr;
+	TCHAR* m_readCallbackDstBuffer = nullptr;
 	DWORD* m_callbackDstBytesRead = nullptr;
 
 	WriteCallback m_writeCallback = nullptr;

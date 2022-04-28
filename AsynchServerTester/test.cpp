@@ -76,21 +76,23 @@ TEST(CustomAsynchServerTestCase, ReadTest)
 	EXPECT_NE(SetNamedPipeHandleState(client, &pipe_mode, NULL, NULL), false);
 
 	DWORD bytes_written = 0;
-	const std::wstring write_buffer = L"Hello world)))";
-	WriteFile(client, write_buffer.c_str(), 512 * sizeof(TCHAR), &bytes_written, nullptr);
+	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
+	WriteFile(client, write_buffer, 512 * sizeof(TCHAR), &bytes_written, nullptr);
 
 	EXPECT_EQ(bytes_written, 512 * sizeof(TCHAR));
 
-	std::wstring read_buffer = L"";
+	TCHAR* read_buffer = new TCHAR[sizeof(TCHAR) * 512];
 	DWORD bytes_read = 0;
-	server.read(&read_buffer, &bytes_read, nullptr);
+	server.read(read_buffer, &bytes_read, nullptr);
 
 	while (bytes_read != bytes_written)
 	{
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
-	EXPECT_EQ(read_buffer, write_buffer);
+	//memcmp(read_buffer, write_buffer.c_str(), sizeof(TCHAR) * 512);
+
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
 	EXPECT_EQ(bytes_read, bytes_written);
 
 	server.stop();
@@ -125,7 +127,7 @@ TEST(CustomAsynchServerTestCase, WriteTest)
 	DWORD pipe_mode = PIPE_READMODE_MESSAGE;
 	EXPECT_NE(SetNamedPipeHandleState(client, &pipe_mode, NULL, NULL), false);
 
-	std::wstring write_buffer = L"Hello world)))";
+	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
 	DWORD bytes_written = 0;
 	server.write(write_buffer, &bytes_written, nullptr);
 
@@ -139,7 +141,7 @@ TEST(CustomAsynchServerTestCase, WriteTest)
 	DWORD bytes_read = 0;
 	ReadFile(client, read_buffer, 512 * sizeof(TCHAR), &bytes_read, nullptr);
 
-	EXPECT_EQ(read_buffer, write_buffer);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
 	EXPECT_EQ(bytes_read, bytes_written);
 
 	server.stop();

@@ -86,12 +86,12 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 	ConnectNamedPipe(server, nullptr);
 
 	DWORD bytes_written = 0;
-	const std::wstring write_buffer = L"Hello world)))";
-	WriteFile(server, write_buffer.c_str(), 512 * sizeof(TCHAR), &bytes_written, nullptr);
+	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
+	WriteFile(server, write_buffer, 512 * sizeof(TCHAR), &bytes_written, nullptr);
 
-	std::wstring read_buffer = L"";
+	TCHAR* read_buffer = new TCHAR[sizeof(TCHAR) * 512];
 	DWORD bytes_read = 0;
-	client.read(&read_buffer, &bytes_read, nullptr);
+	client.read(read_buffer, &bytes_read, nullptr);
 	
 	while (bytes_read != bytes_written)
 	{
@@ -103,7 +103,7 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 	EXPECT_EQ(true, true);
 	EXPECT_EQ(bytes_written, bytes_read);
 	EXPECT_EQ(bytes_written, sizeof(TCHAR) * 512);
-	EXPECT_EQ(read_buffer, write_buffer);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
 
 	ConnectNamedPipe(server, nullptr);
 	EXPECT_EQ(GetLastError(), ERROR_PIPE_CONNECTED);
@@ -134,7 +134,7 @@ TEST(CustomAsynchClientTestCase, WriteTest)
 	ConnectNamedPipe(server, nullptr);
 
 	DWORD bytes_written = 0;
-	const std::wstring write_buffer = L"Hello world)))";
+	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
 	client.write(write_buffer, &bytes_written, nullptr);
 
 	while (bytes_written != sizeof(TCHAR) * 512)
@@ -153,7 +153,7 @@ TEST(CustomAsynchClientTestCase, WriteTest)
 	EXPECT_EQ(true, true);
 	EXPECT_EQ(bytes_written, bytes_read);
 	EXPECT_EQ(bytes_written, sizeof(TCHAR) * 512);
-	EXPECT_EQ(read_buffer, write_buffer);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
 
 	ConnectNamedPipe(server, nullptr);
 	EXPECT_EQ(GetLastError(), ERROR_PIPE_CONNECTED);
