@@ -3,9 +3,9 @@
 
 namespace TestToolkit
 {
-	void CopyReadInfo(const std::wstring& l_buffer_read, const DWORD l_bytes_read);
+	void CopyReadInfo(const TCHAR* l_buffer_read, const DWORD l_bytes_read);
 
-	void CopyWriteInfo(const DWORD l_bytes_written);
+	void CopyWriteInfo(const TCHAR* l_buffer_write, const DWORD l_bytes_written);
 }
 
 TEST(CustomAsynchClientTestCase, CreateTest) 
@@ -67,6 +67,7 @@ TEST(CustomAsynchClientTestCase, RunStopTest)
 TEST(CustomAsynchClientTestCase, ReadTest)
 {
 	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
 
 	HANDLE server = CreateNamedPipe(L"\\\\.\\pipe\\mynamedpipe",
 									PIPE_ACCESS_DUPLEX,
@@ -90,8 +91,8 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 	WriteFile(server, write_buffer, 512 * sizeof(TCHAR), &bytes_written, nullptr);
 
 	TCHAR* read_buffer = new TCHAR[sizeof(TCHAR) * 512];
-	DWORD bytes_read = 0;
-	client.read(read_buffer, &bytes_read, nullptr);
+	DWORD bytes_read = 512 * sizeof(TCHAR);
+	client.read(read_buffer, bytes_read, nullptr);
 	
 	while (bytes_read != bytes_written)
 	{
@@ -135,7 +136,7 @@ TEST(CustomAsynchClientTestCase, WriteTest)
 
 	DWORD bytes_written = 0;
 	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
-	client.write(write_buffer, &bytes_written, nullptr);
+	client.write(write_buffer, bytes_written, nullptr);
 
 	while (bytes_written != sizeof(TCHAR) * 512)
 	{
@@ -164,21 +165,62 @@ TEST(CustomAsynchClientTestCase, WriteTest)
 
 int main(int argc, char* argv[])
 {
+	try
+	{
+		const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+		const DWORD bufSize = 512;
+
+		CustomAsynchClient test_client(pipe_path);
+
+		test_client.run();
+
+		DWORD bytes_written = bufSize * sizeof(TCHAR);
+
+		if (test_client.write(L"Hello, world)))", bytes_written, TestToolkit::CopyWriteInfo) == false)
+		{
+			std::this_thread::sleep_for(std::chrono::seconds(5));
+
+			test_client.write(L"Hello, world)))", bytes_written, TestToolkit::CopyWriteInfo);
+		}
+
+		std::this_thread::sleep_for(std::chrono::seconds(3));
+
+		TCHAR* read_buffer = new TCHAR[bufSize];
+		DWORD bytes_read = bufSize * sizeof(TCHAR);
+
+		if (test_client.read(read_buffer, bytes_read, TestToolkit::CopyReadInfo) == false)
+		{
+			std::this_thread::sleep_for(std::chrono::seconds(5));
+
+			test_client.read(read_buffer, bytes_read, TestToolkit::CopyReadInfo);
+		}
+
+		test_client.stop();
+	}
+	catch (const std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+
+	system("pause");
+	return 0;
+
+	/**
 	::testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
+	**/
 }
 
-void TestToolkit::CopyReadInfo(const std::wstring& l_buffer_read, const DWORD l_bytes_read)
+void TestToolkit::CopyReadInfo(const TCHAR* l_buffer_read, const DWORD l_bytes_read)
 {
 	std::wcout << "[SERVER]: " << L"{ TEXT MESSAGE } = " << l_buffer_read;
 	std::wcout << " { NUMBER BYTES READ } = " << l_bytes_read << ";";
 	std::wcout << std::endl;
 }
 
-void TestToolkit::CopyWriteInfo(const DWORD l_bytes_written)
+void TestToolkit::CopyWriteInfo(const TCHAR* l_buffer_write, const DWORD l_bytes_written)
 {
-
-	std::wcout << "[SERVICE INFO]: ";
+	std::wcout << "[SERVICE INFO]: " << L"{ TEXT MESSAGE } = " << l_buffer_write;
 	std::wcout << " { NUMBER BYTES WRITTEN } = " << l_bytes_written << ";";
 	std::wcout << std::endl;
 }

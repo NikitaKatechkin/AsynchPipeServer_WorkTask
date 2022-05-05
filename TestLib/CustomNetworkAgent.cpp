@@ -26,32 +26,10 @@ CustomAsynchNetworkAgent::CustomAsynchNetworkAgent(const std::wstring& pipePath,
         m_replyBuffers[index] = std::unique_ptr<TCHAR[]>(new TCHAR[m_bufsize]);
     }
     //ALLOCATING MEMORY END
-
-    /**
-    for (DWORD index = 0; index < m_capacity; index++)
-    {
-        m_event[index] = CreateEvent(NULL, TRUE, TRUE, NULL);
-        if (m_event[index] == NULL)
-        {
-            std::stringstream error_message;
-            error_message << "[CustomServer::CustomServer()->CreateEvent()] ";
-            error_message << "Failed to create an event object with GLE = ";
-            error_message << GetLastError() << "." << std::endl;
-            throw std::exception(error_message.str().c_str());
-        }
-        m_overlapped[index].hEvent = m_event[index];
-        //this->ConstructConnect(m_pipe[index]);
-        ConstructConnect(m_pipe[index]);
-        initConnect(index);
-    }
-    **/
 }
 
 CustomAsynchNetworkAgent::~CustomAsynchNetworkAgent()
 {
-    //stop();
-    //delete m_process_loop_th;
-
     if (m_isServerRunning == true)
     {
         this->stop();
@@ -76,41 +54,6 @@ void CustomAsynchNetworkAgent::run()
 
 void CustomAsynchNetworkAgent::stop()
 {
-    /**
-    *
-    * WORKING VERSION
-    *
-    m_is_server_running = false;
-    m_process_loop_th.join();
-    *
-    *
-    *
-    **/
-
-    /**
-    bool is_all_pipe_handled = true;
-    while (true)
-    {
-        is_all_pipe_handled = true;
-        for (DWORD index = 0; index < m_capacity; index++)
-        {
-            if (!((m_state[index] == Server_State::Non_Initialized) ||
-                (m_state[index] == Server_State::Disconnected) ||
-                (m_state[index] == Server_State::Connected) ||
-                (m_state[index] == Server_State::Connection_Pended)))
-            {
-                is_all_pipe_handled = false;
-                break;
-            }
-        }
-        if (is_all_pipe_handled == true)
-        {
-            m_is_server_running = false;
-            break;
-        }
-    }
-    **/
-
     m_isServerRunning = false;
     SetEvent(m_event[0]);
 
@@ -118,8 +61,8 @@ void CustomAsynchNetworkAgent::stop()
 }
 
 bool CustomAsynchNetworkAgent::read(TCHAR* buffer,
-                                    DWORD* bytesRead,
-                                    ReadCallback readCallback, 
+                                    DWORD bytesRead,
+                                    Callback readCallback, 
                                     const DWORD index)
 {
     if (m_state[index] != Server_State::Connected)
@@ -136,28 +79,26 @@ bool CustomAsynchNetworkAgent::read(TCHAR* buffer,
         return false;
     }
 
-    m_serviceOperationMutex.lock();
+    std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
 
 
     m_readCallbackDstBuffer = buffer;
-    m_callbackDstBytesRead = bytesRead;
-    if (readCallback != nullptr)
-    {
-        m_readCallback = readCallback;
-    }
+    //m_callbackDstBytesRead = bytesRead;
+    m_bytesRead[index] = bytesRead;
+    m_readCallback = readCallback;
 
     m_state[index] = Server_State::Reading_Signaled;
 
     SetEvent(m_overlapped[index].hEvent);
 
-    m_serviceOperationMutex.unlock();
+    //m_serviceOperationMutex.unlock();
 
     return true;
 }
 
 bool CustomAsynchNetworkAgent::write(const TCHAR* message,
-                                     DWORD* bytesWritten,
-                                     WriteCallback writeCallback, 
+                                     DWORD bytesWritten,
+                                     Callback writeCallback, 
                                      const DWORD index)
 {
     if (m_state[index] != Server_State::Connected)
@@ -174,25 +115,21 @@ bool CustomAsynchNetworkAgent::write(const TCHAR* message,
         return false;
     }
 
-    m_serviceOperationMutex.lock();
+    std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
 
-    m_callbackDstBytesWritten = bytesWritten;
-    if (writeCallback != nullptr)
-    {
-        this->m_writeCallback = writeCallback;
-    }
 
-    //StringCchCopy(m_replyBuffers[index].get(), m_bufsize,
-    //              message);
+    //m_callbackDstBytesWritten = bytesWritten;
+    m_writeCallback = writeCallback;
+    m_bytesWritten[index] = bytesWritten;
 
-    memcpy_s(m_replyBuffers[index].get(), m_bufsize * sizeof(TCHAR),
+    memcpy_s(m_replyBuffers[index].get(), m_bytesWritten[index],
              message, m_bufsize * sizeof(TCHAR));
 
     m_state[index] = Server_State::Writing_Signaled;
 
     SetEvent(m_overlapped[index].hEvent);
 
-    m_serviceOperationMutex.unlock();
+    //m_serviceOperationMutex.unlock();
 
 
     return true;
@@ -200,8 +137,6 @@ bool CustomAsynchNetworkAgent::write(const TCHAR* message,
 
 void CustomAsynchNetworkAgent::processLoop()
 {
-    //m_is_server_running = true;
-
     while (m_isServerRunning == true)
     {
         DWORD index = 0;
@@ -301,21 +236,21 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
     {
         //ADD PROCESS IF READ 0 BYTES
 
-        m_serviceOperationMutex.lock();
+        std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
 
         //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-        m_bytesRead[index] = bytes_processed;
+        //m_bytesRead[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
-        //*m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
-        memcpy_s(m_readCallbackDstBuffer, m_bufsize * sizeof(TCHAR), 
+        memcpy_s(m_readCallbackDstBuffer, m_bytesRead[index],
                  m_requestBuffers[index].get(), m_bufsize * sizeof(TCHAR));
-        *m_callbackDstBytesRead = m_bytesRead[index];
+
+        //*m_callbackDstBytesRead = m_bytesRead[index];
         if (m_readCallback != nullptr)
         {
             m_printLogMutex.lock();
 
-            m_readCallback(m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+            m_readCallback(m_readCallbackDstBuffer, bytes_processed);
 
             m_printLogMutex.unlock();
         }
@@ -324,7 +259,7 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
 
         m_state[index] = Server_State::Connected;
 
-        m_serviceOperationMutex.unlock();
+        //m_serviceOperationMutex.unlock();
     }
     else
     {
@@ -332,7 +267,7 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
 
         if ((is_success == false) || (error_code == ERROR_IO_PENDING))
         {
-            m_printLogMutex.lock();
+            std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
             //READING OPERATION WAS PENDED -> SWITCH TO READING_PENDED STATE
 
@@ -340,13 +275,13 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
             std::cout << "Read operation was pended on a named pipe with index = ";
             std::cout << index << std::endl;
 
-            m_printLogMutex.unlock();
+            //m_printLogMutex.unlock();
 
-            m_serviceOperationMutex.lock();
+            std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
 
             m_state[index] = Server_State::Reading_Pended;
 
-            m_serviceOperationMutex.unlock();
+            //m_serviceOperationMutex.unlock();
         }
         else
         {
@@ -361,23 +296,25 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
 
             m_printLogMutex.unlock();
 
-            m_serviceOperationMutex.lock();
+            std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
 
             m_readCallbackDstBuffer = nullptr;
-            *m_callbackDstBytesRead = GetLastError();
+            //*m_callbackDstBytesRead = GetLastError();
             if (m_readCallback != nullptr)
             {
-                //m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+                std::lock_guard<std::mutex> print_lock(m_printLogMutex);
+
+                m_readCallback(m_readCallbackDstBuffer, GetLastError());
             }
 
-            m_serviceOperationMutex.unlock();
+            //m_serviceOperationMutex.unlock();
         }
     }
 }
 
 void CustomAsynchNetworkAgent::initWrite(const DWORD index)
 {
-    m_serviceOperationMutex.lock();
+    std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
 
     DWORD bytes_processed = 0;
     bool is_success = false;
@@ -391,13 +328,15 @@ void CustomAsynchNetworkAgent::initWrite(const DWORD index)
     if ((is_success == true) && (bytes_processed != 0))
     {
         //MESSAGE WAS SUCCESSFULY SEND
-        m_bytesWritten[index] = bytes_processed;
+        //m_bytesWritten[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
-        *m_callbackDstBytesWritten = m_bytesWritten[index];
+        //m_callbackDstBytesWritten = m_bytesWritten[index];
         if (m_writeCallback != nullptr)
         {
-            m_writeCallback(*m_callbackDstBytesWritten);
+            std::lock_guard<std::mutex> print_lock(m_printLogMutex);
+
+            m_writeCallback(m_replyBuffers[index].get(), bytes_processed);
         }
 
         m_state[index] = Server_State::Connected;
@@ -412,6 +351,8 @@ void CustomAsynchNetworkAgent::initWrite(const DWORD index)
         {
             //WRITE OPERATION WAS PENDED
 
+            std::lock_guard<std::mutex> print_lock(m_printLogMutex);
+
             std::cout << "[SERVICE INFO] ";
             std::cout << "Write operation was pended on a named pipe with index = ";
             std::cout << index << std::endl;
@@ -423,171 +364,26 @@ void CustomAsynchNetworkAgent::initWrite(const DWORD index)
             //WRITE OPERATION WAS FAILED
 
             //TO-DO: HERE SHOULD BE RECONNECT()
+            m_printLogMutex.lock();
+
             std::cout << "[CustomServer::InitWrite()->WriteFile()] ";
             std::cout << "Failed to write data on a named pipe with index = " << index;
             std::cout << " with GLE = " << GetLastError() << "." << std::endl;
 
-            *m_callbackDstBytesWritten = GetLastError();
+            m_printLogMutex.unlock();
+            //m_bytesWritten[index] = GetLastError();
 
             if (m_writeCallback != nullptr)
             {
-                //m_writeCallback(*m_callbackDstBytesWritten);
+                std::lock_guard<std::mutex> print_lock(m_printLogMutex);
+
+                m_writeCallback(nullptr, GetLastError());
             }
         }
     }
 
-    m_serviceOperationMutex.unlock();
+    //m_serviceOperationMutex.unlock();
 }
-
-/**
-void CustomAsynchNetworkAgent::OnPended(const DWORD index)
-{
-
-    DWORD bytes_processed = 0;
-    bool is_finished = false;
-
-    m_serviceOperationMutex.lock();
-
-    is_finished = GetOverlappedResult(m_pipe[index],
-        &m_overlapped[index],
-        &bytes_processed,
-        FALSE);
-
-    m_serviceOperationMutex.unlock();
-
-
-    if (is_finished == true)
-    {
-        m_serviceOperationMutex.lock();
-
-        switch (m_state[index])
-        {
-        case Server_State::Connection_Pended:
-        {
-
-            m_state[index] = Server_State::Connected;
-
-            break;
-        }
-        case Server_State::Reading_Pended:
-        {
-            if (bytes_processed != 0)
-            {
-
-                //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-                m_bytesRead[index] = bytes_processed;
-
-                //TO-DO: HERE SHOULD BE CALLBACK()
-                *m_readCallbackDstBuffer = (m_requestBuffers[index]).get();
-                *m_callbackDstBytesRead = m_bytesRead[index];
-                if (m_readCallback != nullptr)
-                {
-                    m_printLogMutex.lock();
-
-                    m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
-
-                    m_printLogMutex.unlock();
-                }
-
-                //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
-
-                m_state[index] = Server_State::Connected;
-            }
-
-            break;
-        }
-        case Server_State::Writing_Pended:
-        {
-            if (bytes_processed == m_bufsize)
-            {
-                // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
-                m_bytesWritten[index] = bytes_processed;
-
-                //TO-DO: HERE SHOULD BE CALLBACK()
-                *m_callbackDstBytesWritten = m_bytesWritten[index];
-
-                if (m_writeCallback != nullptr)
-                {
-                    m_printLogMutex.lock();
-
-                    m_writeCallback(*m_callbackDstBytesWritten);
-
-                    m_printLogMutex.unlock();
-                }
-
-                m_state[index] = Server_State::Connected;
-
-
-            }
-
-            break;
-        }
-        default:
-        {
-            break;
-        }
-        }
-
-        m_serviceOperationMutex.unlock();
-    }
-    else
-    {
-        // ERROR WAS OCCURED WHILE PERFORM PENDED OPERATION
-
-        m_printLogMutex.lock();
-
-        //TO-DO: HERE SHOULD BE RECONNECT()
-        std::cout << "[CustomServer::PendedRead()->GetOverlappedResult()] ";
-        std::cout << "Failed to read data on a named pipe with index = " << index;
-        std::cout << " with GLE = " << GetLastError() << "." << std::endl;
-
-        m_printLogMutex.unlock();
-
-        m_serviceOperationMutex.lock();
-
-        switch (m_state[index])
-        {
-        case Server_State::Reading_Pended:
-        {
-            //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-            //m_bytesRead[index] = bytes_processed;
-
-            //TO-DO: HERE SHOULD BE CALLBACK()
-            m_readCallbackDstBuffer = nullptr;
-            *m_callbackDstBytesRead = GetLastError();
-            if (m_readCallback != nullptr)
-            {
-                //m_readCallback(*m_readCallbackDstBuffer, *m_callbackDstBytesRead);
-            }
-
-
-            break;
-        }
-        case Server_State::Writing_Pended:
-        {
-            // PENDED WRITE OPERATION SUCCEED -> SWITCH TO CONNECTED STATE
-            //m_bytesWritten[index] = bytes_processed;
-
-            //TO-DO: HERE SHOULD BE CALLBACK()
-            *m_callbackDstBytesWritten = GetLastError();
-
-            if (m_writeCallback != nullptr)
-            {
-                m_writeCallback(*m_callbackDstBytesWritten);
-            }
-
-            break;
-        }
-        default:
-        {
-            break;
-        }
-        }
-
-        m_serviceOperationMutex.unlock();
-    }
-}
-**/
 
 bool CustomAsynchNetworkAgent::OnPended(DWORD* bytes_processed, const DWORD index)
 {
@@ -608,14 +404,14 @@ bool CustomAsynchNetworkAgent::OnPended(DWORD* bytes_processed, const DWORD inde
 
         *bytes_processed = GetLastError();
 
-        m_printLogMutex.lock();
+        std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
         //TO-DO: HERE SHOULD BE RECONNECT()
         std::cout << "[CustomServer::PendedRead()->GetOverlappedResult()] ";
         std::cout << "Failed to read data on a named pipe with index = " << index;
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
 
-        m_printLogMutex.unlock();
+        //m_printLogMutex.unlock();
     }
 
     return is_success;
@@ -633,28 +429,27 @@ void CustomAsynchNetworkAgent::OnConnect(const DWORD index)
 
 void CustomAsynchNetworkAgent::OnRead(const DWORD index)
 {
-    bool is_success = OnPended(m_callbackDstBytesRead, index);
+    DWORD bytes_read = 0;
+    bool is_success = OnPended(&bytes_read, index);
 
     if (is_success == true)
     {
-        if (*m_callbackDstBytesRead != 0)
+        if (bytes_read != 0)
         {
             //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-            m_bytesRead[index] = *m_callbackDstBytesRead;
+            //m_bytesRead[index] = *m_callbackDstBytesRead;
 
             //TO-DO: HERE SHOULD BE CALLBACK()
-            memcpy_s(m_readCallbackDstBuffer, m_bufsize * sizeof(TCHAR),
+            memcpy_s(m_readCallbackDstBuffer, m_bytesRead[index],
                      m_requestBuffers[index].get(), m_bufsize * sizeof(TCHAR));
             if (m_readCallback != nullptr)
             {
-                m_printLogMutex.lock();
+                std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
-                m_readCallback(m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+                m_readCallback(m_readCallbackDstBuffer, bytes_read);
 
-                m_printLogMutex.unlock();
+                //m_printLogMutex.unlock();
             }
-
-            //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
             m_state[index] = Server_State::Connected;
         }
@@ -664,36 +459,35 @@ void CustomAsynchNetworkAgent::OnRead(const DWORD index)
         m_readCallbackDstBuffer = nullptr;
         if (m_readCallback != nullptr)
         {
-            m_printLogMutex.lock();
+            std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
-            m_readCallback(m_readCallbackDstBuffer, *m_callbackDstBytesRead);
+            m_readCallback(m_readCallbackDstBuffer, GetLastError());
 
-            m_printLogMutex.unlock();
+            //m_printLogMutex.unlock();
         }
     }
 }
 
 void CustomAsynchNetworkAgent::OnWrite(const DWORD index)
 {
-    bool is_success = OnPended(m_callbackDstBytesWritten, index);
+    DWORD bytes_written = 0;
+    bool is_success = OnPended(&bytes_written, index);
 
     if (is_success == true)
     {
-        if (*m_callbackDstBytesWritten == m_bufsize * sizeof(TCHAR))
+        if (bytes_written == m_bufsize * sizeof(TCHAR))
         {
             //MESSAGE WAS SUCCESSFULY READ -> SWITCH TO CONNECTED STATE
-            m_bytesWritten[index] = *m_callbackDstBytesWritten;
+            //m_bytesWritten[index] = m_callbackDstBytesWritten;
 
             if (m_readCallback != nullptr)
             {
-                m_printLogMutex.lock();
+                std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
-                m_writeCallback(*m_callbackDstBytesWritten);
+                m_writeCallback(m_replyBuffers[index].get() , bytes_written);
 
-                m_printLogMutex.unlock();
+                //m_printLogMutex.unlock();
             }
-
-            //std::wcout << L"[CLIENT]: " << m_request_buffers[l_index] << std::endl;
 
             m_state[index] = Server_State::Connected;
         }
@@ -702,11 +496,11 @@ void CustomAsynchNetworkAgent::OnWrite(const DWORD index)
     {
         if (m_readCallback != nullptr)
         {
-            m_printLogMutex.lock();
+            std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
-            m_writeCallback(*m_callbackDstBytesWritten);
+            m_writeCallback(m_replyBuffers[index].get() , GetLastError());
 
-            m_printLogMutex.unlock();
+            //m_printLogMutex.unlock();
         }
     }
 }

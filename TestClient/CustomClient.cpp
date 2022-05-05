@@ -37,7 +37,8 @@ CustomAsynchClient::CustomAsynchClient(const std::wstring& pipe_path,
 
 void CustomAsynchClient::initConnect(const DWORD index)
 {
-    m_serviceOperationMutex.lock();
+    std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
+
 
     //TRYING TO CONNECT A NAMED PIPE
 
@@ -50,6 +51,7 @@ void CustomAsynchClient::initConnect(const DWORD index)
         TEMPLATE_FILE);
 
     bool is_connection_succeed = (m_pipe[index] != INVALID_HANDLE_VALUE);
+    std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
     if (is_connection_succeed == true)
     {
@@ -118,5 +120,5 @@ void CustomAsynchClient::initConnect(const DWORD index)
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 
-    m_serviceOperationMutex.unlock();
+    //m_serviceOperationMutex.unlock();
 }

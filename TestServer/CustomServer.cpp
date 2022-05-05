@@ -54,13 +54,15 @@ CustomAsynchServer::CustomAsynchServer(const std::wstring& pipe_path,
 
 void CustomAsynchServer::initConnect(const DWORD index)
 {
-    m_serviceOperationMutex.lock();
+    std::lock_guard<std::mutex> operation_lock(m_serviceOperationMutex);
+    //m_serviceOperationMutex.lock();
 
     //TRYING TO CONNECT A NAMED PIPE
 
     bool is_connection_succeed = !ConnectNamedPipe(m_pipe[index],
         &m_overlapped[index]);
 
+    std::lock_guard<std::mutex> print_lock(m_printLogMutex);
     if (is_connection_succeed == true)
     {
         switch (GetLastError())
@@ -118,7 +120,7 @@ void CustomAsynchServer::initConnect(const DWORD index)
         std::cout << " with GLE = " << GetLastError() << "." << std::endl;
     }
 
-    m_serviceOperationMutex.unlock();
+    //m_serviceOperationMutex.unlock();
 }
 
 /**
