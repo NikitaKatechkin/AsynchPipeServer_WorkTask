@@ -17,7 +17,32 @@ namespace TestToolkit
 		DWORD bytes_read,
 		CustomAsynchServer::Callback callback_function, 
 		const DWORD index);
+
+	namespace MockedFunctionality
+	{
+		struct FlagBundle
+		{
+			bool m_wasFuctionCalled = false; //g_ as global 
+
+			TCHAR* m_bufferAddress = nullptr;
+			DWORD m_bufferSize = 0;
+
+			void Reset()
+			{
+				bool m_wasFuctionCalled = false; //g_ as global 
+
+				TCHAR* m_bufferAddress = nullptr;
+				DWORD m_bufferSize = 0;
+			}
+		};
+
+		FlagBundle g_allFlags;
+
+		void FlaggedReadCallback(const TCHAR* l_buffer_read, const DWORD l_bytes_read);
+		void FlaggedWriteCallback(const TCHAR* l_buffer_write, const DWORD l_bytes_written);
+	}
 }
+
 
 TEST(CustomAsynchServerTestCase, CreateTest)
 {
@@ -166,6 +191,71 @@ TEST(CustomAsynchServerTestCase, WriteTest)
 TEST(CustomAsynchServerTestCase, NullMessageTransferWriteTest)
 {
 	TestToolkit::WriteOperationPerformer(nullptr, 1024, nullptr);
+}
+
+TEST(CustomAsynchServerTestCase, NonNullCallbackMessageTransferWriteTest)
+{
+	const DWORD bufSize = 512;
+	const TCHAR* write_buffer = new TCHAR[bufSize]{ L"Hello world)))"};
+
+	TestToolkit::WriteOperationPerformer(write_buffer, 
+										 sizeof(TCHAR) * bufSize, 
+										 TestToolkit::CopyWriteInfo);
+}
+
+TEST(CustomAsynchServerTestCase, NullMessageRecieveReadTest)
+{
+	const DWORD bufSize = 512;
+
+	TestToolkit::ReadOperationPerformer(nullptr,
+										bufSize * sizeof(TCHAR),
+										nullptr,
+										0);
+}
+
+TEST(CustomAsynchServerTestCase, NonNullCallbackRecieveReadTest)
+{
+	const DWORD bufSize = 512;
+	TCHAR* read_buffer = new TCHAR[bufSize];
+
+	TestToolkit::ReadOperationPerformer(read_buffer, 
+										bufSize * sizeof(TCHAR), 
+										TestToolkit::CopyReadInfo, 
+										0);
+}
+
+TEST(CustomAsynchServerTestCase, NonNullCallbackRecieveReadTestWithFlags)
+{
+	const DWORD bufSize = 512;
+	TCHAR* read_buffer = new TCHAR[bufSize];
+
+	TestToolkit::MockedFunctionality::g_allFlags.Reset();
+
+	TestToolkit::ReadOperationPerformer(read_buffer,
+										bufSize * sizeof(TCHAR),
+										TestToolkit::MockedFunctionality::FlaggedWriteCallback,
+										0);
+
+	EXPECT_EQ(read_buffer, TestToolkit::MockedFunctionality::g_allFlags.m_bufferAddress);
+	EXPECT_EQ(bufSize * sizeof(TCHAR), TestToolkit::MockedFunctionality::g_allFlags.m_bufferSize);
+	EXPECT_EQ(true, TestToolkit::MockedFunctionality::g_allFlags.m_wasFuctionCalled);
+}
+
+TEST(CustomAsynchServerTestCase, NonNullCallbackTransferWriteTestWithFlags)
+{
+	const DWORD bufSize = 512;
+	const TCHAR* write_buffer = new TCHAR[bufSize]{ L"Hello world)))" };
+
+	TestToolkit::MockedFunctionality::g_allFlags.Reset();
+
+	TestToolkit::WriteOperationPerformer(write_buffer,
+		sizeof(TCHAR) * bufSize,
+		TestToolkit::MockedFunctionality::FlaggedWriteCallback);
+
+	EXPECT_NE((write_buffer),
+		TestToolkit::MockedFunctionality::g_allFlags.m_bufferAddress);
+	EXPECT_EQ(bufSize * sizeof(TCHAR), TestToolkit::MockedFunctionality::g_allFlags.m_bufferSize);
+	EXPECT_EQ(true, TestToolkit::MockedFunctionality::g_allFlags.m_wasFuctionCalled);
 }
 
 int main(int argc, char* argv[])
@@ -326,12 +416,15 @@ void TestToolkit::ReadOperationPerformer(TCHAR* read_buffer,
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	TestToolkit::CopyReadInfo(read_buffer, bytes_read);
-	TestToolkit::CopyReadInfo(write_buffer, bytes_written);
+	//TestToolkit::CopyReadInfo(read_buffer, bytes_read);
+	//TestToolkit::CopyReadInfo(write_buffer, bytes_written);
 
 	//memcmp(read_buffer, write_buffer.c_str(), sizeof(TCHAR) * 512);
 
-	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
+	if (read_buffer != nullptr)
+	{
+		EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
+	}
 	EXPECT_EQ(bytes_read, bytes_written);
 
 	server.stop();
@@ -339,4 +432,21 @@ void TestToolkit::ReadOperationPerformer(TCHAR* read_buffer,
 	EXPECT_EQ(true, true);
 
 	CloseHandle(client);
+}
+
+void TestToolkit::MockedFunctionality::FlaggedReadCallback(const TCHAR* l_buffer_read, 
+														   const DWORD l_bytes_read)
+{
+	g_allFlags.m_wasFuctionCalled = true;
+
+	g_allFlags.m_bufferAddress = const_cast<TCHAR*>(l_buffer_read);
+	g_allFlags.m_bufferSize = l_bytes_read;
+}
+void TestToolkit::MockedFunctionality::FlaggedWriteCallback(const TCHAR* l_buffer_write, 
+															const DWORD l_bytes_written)
+{
+	g_allFlags.m_wasFuctionCalled = true;
+
+	g_allFlags.m_bufferAddress = const_cast<TCHAR*>(l_buffer_write);
+	g_allFlags.m_bufferSize = l_bytes_written;
 }

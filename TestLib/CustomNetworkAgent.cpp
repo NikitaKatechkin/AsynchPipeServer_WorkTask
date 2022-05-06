@@ -241,8 +241,11 @@ void CustomAsynchNetworkAgent::initRead(const DWORD index)
         //m_bytesRead[index] = bytes_processed;
 
         //TO-DO: HERE SHOULD BE CALLBACK()
-        memcpy_s(m_readCallbackDstBuffer, m_bytesRead[index],
-                 m_requestBuffers[index].get(), m_bufsize * sizeof(TCHAR));
+        if (m_readCallbackDstBuffer != nullptr)
+        {
+            memcpy_s(m_readCallbackDstBuffer, m_bytesRead[index],
+                    m_requestBuffers[index].get(), m_bufsize * sizeof(TCHAR));
+        }
 
         //*m_callbackDstBytesRead = m_bytesRead[index];
         if (m_readCallback != nullptr)
