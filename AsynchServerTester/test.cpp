@@ -1,20 +1,31 @@
 #include "pch.h"
-#include <TestServer/CustomServer.h>
+#include <AsynchPipeServer/CustomServer.h>
 
 namespace TestToolkit
 {
 	void CopyReadInfo(const TCHAR* l_buffer_read, const DWORD l_bytes_read);
 
 	void CopyWriteInfo(const TCHAR* l_buffer_write, const DWORD l_bytes_written);
+
+	void WriteOperationPerformer(
+							const TCHAR* write_buffer, 
+							DWORD bytes_written, 
+							CustomAsynchServer::Callback callback_function);
+
+	void ReadOperationPerformer(
+		TCHAR* read_buffer,
+		DWORD bytes_read,
+		CustomAsynchServer::Callback callback_function, 
+		const DWORD index);
 }
 
 TEST(CustomAsynchServerTestCase, CreateTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
 
 	try
 	{
-		CustomAsynchServer server(pipe_path, 1);
+		CustomAsynchServer server(pipePath, 1);
 	}
 	catch (const std::exception&)
 	{
@@ -24,15 +35,15 @@ TEST(CustomAsynchServerTestCase, CreateTest)
 
 TEST(CustomAsynchServerTestCase, RunStopTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
 
-	CustomAsynchServer server(pipe_path, 1);
+	CustomAsynchServer server(pipePath, 1);
 
 	server.run();
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	HANDLE client = CreateFile(L"\\\\.\\pipe\\mynamedpipe",
+	HANDLE client = CreateFile(pipePath,
 							   GENERIC_READ | GENERIC_WRITE,
 							   FILE_SHARE_READ | FILE_SHARE_WRITE,
 							   nullptr,
@@ -52,16 +63,16 @@ TEST(CustomAsynchServerTestCase, RunStopTest)
 
 TEST(CustomAsynchServerTestCase, ReadTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
 	const DWORD bufSize = 512;
 
-	CustomAsynchServer server(pipe_path, 1);
+	CustomAsynchServer server(pipePath, 1);
 
 	server.run();
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	HANDLE client = CreateFile(L"\\\\.\\pipe\\mynamedpipe",
+	HANDLE client = CreateFile(pipePath,
 							   GENERIC_READ | GENERIC_WRITE,
 							   FILE_SHARE_READ | FILE_SHARE_WRITE,
 							   nullptr,
@@ -78,22 +89,23 @@ TEST(CustomAsynchServerTestCase, ReadTest)
 
 	DWORD bytes_written = 0;
 	const TCHAR write_buffer[bufSize] = L"Hello world)))";
-	WriteFile(client, write_buffer, bufSize * sizeof(TCHAR), &bytes_written, nullptr);
+	EXPECT_EQ(
+		WriteFile(client, write_buffer, bufSize * sizeof(TCHAR), &bytes_written, nullptr), TRUE);
 
 	EXPECT_EQ(bytes_written, bufSize * sizeof(TCHAR));
 
-	TCHAR* read_buffer = new TCHAR[sizeof(TCHAR) * bufSize];
+	TCHAR* read_buffer = new TCHAR[bufSize];
 	DWORD bytes_read = bufSize * sizeof(TCHAR);
 	server.read(read_buffer, bytes_read, nullptr);
 
-	while (bytes_read != bytes_written)
-	{
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-	}
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	
+	TestToolkit::CopyReadInfo(read_buffer, bytes_read);
+	TestToolkit::CopyReadInfo(write_buffer, bytes_written);
 
 	//memcmp(read_buffer, write_buffer.c_str(), sizeof(TCHAR) * 512);
 
-	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
 	EXPECT_EQ(bytes_read, bytes_written);
 
 	server.stop();
@@ -105,21 +117,22 @@ TEST(CustomAsynchServerTestCase, ReadTest)
 
 TEST(CustomAsynchServerTestCase, WriteTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
 
-	CustomAsynchServer server(pipe_path, 1);
+	CustomAsynchServer server(pipePath, 1);
 
 	server.run();
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	HANDLE client = CreateFile(L"\\\\.\\pipe\\mynamedpipe",
-		GENERIC_READ | GENERIC_WRITE,
-		FILE_SHARE_READ | FILE_SHARE_WRITE,
-		nullptr,
-		OPEN_EXISTING,
-		NULL,
-		NULL);
+	HANDLE client = CreateFile(pipePath,
+							   GENERIC_READ | GENERIC_WRITE,
+							   FILE_SHARE_READ | FILE_SHARE_WRITE,
+							   nullptr,
+							   OPEN_EXISTING,
+							   NULL,
+							   NULL);
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
@@ -128,21 +141,19 @@ TEST(CustomAsynchServerTestCase, WriteTest)
 	DWORD pipe_mode = PIPE_READMODE_MESSAGE;
 	EXPECT_NE(SetNamedPipeHandleState(client, &pipe_mode, NULL, NULL), false);
 
-	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
-	DWORD bytes_written = 0;
+	const TCHAR write_buffer[bufSize] = L"Hello world)))";
+	DWORD bytes_written = bufSize * sizeof(TCHAR);
 	server.write(write_buffer, bytes_written, nullptr);
 
-	while (bytes_written != sizeof(TCHAR) * 512)
-	{
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-	}
-	EXPECT_EQ(bytes_written, 512 * sizeof(TCHAR));
+	
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	//EXPECT_EQ(bytes_written, bufSize * sizeof(TCHAR));
 
-	TCHAR read_buffer[sizeof(TCHAR) * 512];
+	TCHAR read_buffer[bufSize];
 	DWORD bytes_read = 0;
-	ReadFile(client, read_buffer, 512 * sizeof(TCHAR), &bytes_read, nullptr);
+	EXPECT_EQ(ReadFile(client, read_buffer, bufSize * sizeof(TCHAR), &bytes_read, nullptr), TRUE);
 
-	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
 	EXPECT_EQ(bytes_read, bytes_written);
 
 	server.stop();
@@ -152,8 +163,14 @@ TEST(CustomAsynchServerTestCase, WriteTest)
 	CloseHandle(client);
 }
 
+TEST(CustomAsynchServerTestCase, NullMessageTransferWriteTest)
+{
+	TestToolkit::WriteOperationPerformer(nullptr, 1024, nullptr);
+}
+
 int main(int argc, char* argv[])
 {
+	/**
 	try
 	{
 		const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
@@ -193,11 +210,11 @@ int main(int argc, char* argv[])
 	
 	system("pause");
 	return 0;
+	**/
 
-	/**
+	
 	::testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
-	**/
 }
 
 void TestToolkit::CopyReadInfo(const TCHAR* l_buffer_read, const DWORD l_bytes_read)
@@ -212,4 +229,114 @@ void TestToolkit::CopyWriteInfo(const TCHAR* l_buffer_write, const DWORD l_bytes
 	std::wcout << "[SERVICE INFO]: " << L"{ TEXT MESSAGE } = " << l_buffer_write;
 	std::wcout << " { NUMBER BYTES WRITTEN } = " << l_bytes_written << ";";
 	std::wcout << std::endl;
+}
+
+void TestToolkit::WriteOperationPerformer(const TCHAR* write_buffer, 
+	DWORD bytes_written, 
+	CustomAsynchServer::Callback callback_function)
+{
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
+
+	CustomAsynchServer server(pipePath, 1);
+
+	server.run();
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	HANDLE client = CreateFile(pipePath,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		nullptr,
+		OPEN_EXISTING,
+		NULL,
+		NULL);
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	EXPECT_NE(client, INVALID_HANDLE_VALUE);
+
+	DWORD pipe_mode = PIPE_READMODE_MESSAGE;
+	EXPECT_NE(SetNamedPipeHandleState(client, &pipe_mode, NULL, NULL), false);
+
+	//const TCHAR write_buffer[bufSize] = L"Hello world)))";
+	//DWORD bytes_written = bufSize * sizeof(TCHAR);
+	server.write(write_buffer, bytes_written, callback_function);
+
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	//EXPECT_EQ(bytes_written, bufSize * sizeof(TCHAR));
+
+	TCHAR read_buffer[bufSize];
+	DWORD bytes_read = 0;
+	EXPECT_EQ(ReadFile(client, read_buffer, bufSize * sizeof(TCHAR), &bytes_read, nullptr), TRUE);
+
+	if (write_buffer != nullptr)
+	{
+		EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
+	}
+	EXPECT_EQ(bytes_read, bytes_written);
+
+	server.stop();
+
+	EXPECT_EQ(true, true);
+
+	CloseHandle(client);
+}
+
+void TestToolkit::ReadOperationPerformer(TCHAR* read_buffer, 
+	DWORD bytes_read, 
+	CustomAsynchServer::Callback callback_function, 
+	const DWORD index)
+{
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
+
+	CustomAsynchServer server(pipePath, 1);
+
+	server.run();
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	HANDLE client = CreateFile(pipePath,
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		nullptr,
+		OPEN_EXISTING,
+		NULL,
+		NULL);
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	EXPECT_NE(client, INVALID_HANDLE_VALUE);
+
+	DWORD pipe_mode = PIPE_READMODE_MESSAGE;
+	EXPECT_NE(SetNamedPipeHandleState(client, &pipe_mode, NULL, NULL), false);
+
+	DWORD bytes_written = 0;
+	const TCHAR write_buffer[bufSize] = L"Hello world)))";
+	EXPECT_EQ(
+		WriteFile(client, write_buffer, bufSize * sizeof(TCHAR), &bytes_written, nullptr), TRUE);
+
+	EXPECT_EQ(bytes_written, bufSize * sizeof(TCHAR));
+
+	//TCHAR* read_buffer = new TCHAR[bufSize];
+	//DWORD bytes_read = bufSize * sizeof(TCHAR);
+	server.read(read_buffer, bytes_read, callback_function, index);
+
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	TestToolkit::CopyReadInfo(read_buffer, bytes_read);
+	TestToolkit::CopyReadInfo(write_buffer, bytes_written);
+
+	//memcmp(read_buffer, write_buffer.c_str(), sizeof(TCHAR) * 512);
+
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
+	EXPECT_EQ(bytes_read, bytes_written);
+
+	server.stop();
+
+	EXPECT_EQ(true, true);
+
+	CloseHandle(client);
 }

@@ -103,14 +103,14 @@ bool CustomAsynchNetworkAgent::write(const TCHAR* message,
 {
     if (m_state[index] != Server_State::Connected)
     {
-        m_printLogMutex.lock();
+        std::lock_guard<std::mutex> print_lock(m_printLogMutex);
 
         std::cout << "[CustomServer::adoptedWrite()] ";
         std::cout << "Could not perform write operation, because state of a named pipe with index = ";
         std::cout << index << " is " << static_cast<int>(m_state[index]);
         std::cout << " != " << static_cast<int>(Server_State::Connected) << std::endl;
 
-        m_printLogMutex.unlock();
+        //m_printLogMutex.unlock();
 
         return false;
     }
@@ -122,15 +122,14 @@ bool CustomAsynchNetworkAgent::write(const TCHAR* message,
     m_writeCallback = writeCallback;
     m_bytesWritten[index] = bytesWritten;
 
-    memcpy_s(m_replyBuffers[index].get(), m_bytesWritten[index],
-             message, m_bufsize * sizeof(TCHAR));
-
+    if (message != nullptr)
+    {
+        memcpy_s(m_replyBuffers[index].get(), m_bytesWritten[index],
+            message, m_bufsize * sizeof(TCHAR));
+    }
+    
     m_state[index] = Server_State::Writing_Signaled;
-
     SetEvent(m_overlapped[index].hEvent);
-
-    //m_serviceOperationMutex.unlock();
-
 
     return true;
 }

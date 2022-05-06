@@ -1,5 +1,5 @@
 #include "pch.h"
-#include <TestClient/CustomClient.h>
+#include <AsynchPipeClient/CustomClient.h>
 
 namespace TestToolkit
 {
@@ -10,18 +10,19 @@ namespace TestToolkit
 
 TEST(CustomAsynchClientTestCase, CreateTest) 
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
 
-	HANDLE server = CreateNamedPipe(L"\\\\.\\pipe\\mynamedpipe",
+	HANDLE server = CreateNamedPipe(pipePath,
 									PIPE_ACCESS_DUPLEX,
 									PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
 									PIPE_UNLIMITED_INSTANCES,
-									512 * sizeof(TCHAR),
-									512 * sizeof(TCHAR),
+									bufSize * sizeof(TCHAR),
+									bufSize * sizeof(TCHAR),
 									0,
 									NULL);
 
-	CustomAsynchClient client(pipe_path);
+	CustomAsynchClient client(pipePath);
 
 	ConnectNamedPipe(server, nullptr);
 
@@ -34,18 +35,19 @@ TEST(CustomAsynchClientTestCase, CreateTest)
 
 TEST(CustomAsynchClientTestCase, RunStopTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
 
 	HANDLE server = CreateNamedPipe(L"\\\\.\\pipe\\mynamedpipe",
 									PIPE_ACCESS_DUPLEX,
 									PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
 									PIPE_UNLIMITED_INSTANCES,
-									512 * sizeof(TCHAR),
-									512 * sizeof(TCHAR),
+									bufSize * sizeof(TCHAR),
+									bufSize * sizeof(TCHAR),
 									0,
 									NULL);
 
-	CustomAsynchClient client(pipe_path);
+	CustomAsynchClient client(pipePath);
 
 	client.run();
 
@@ -66,19 +68,19 @@ TEST(CustomAsynchClientTestCase, RunStopTest)
 
 TEST(CustomAsynchClientTestCase, ReadTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
 	const DWORD bufSize = 512;
 
-	HANDLE server = CreateNamedPipe(L"\\\\.\\pipe\\mynamedpipe",
+	HANDLE server = CreateNamedPipe(pipePath,
 									PIPE_ACCESS_DUPLEX,
 									PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
 									PIPE_UNLIMITED_INSTANCES,
-									512 * sizeof(TCHAR),
-									512 * sizeof(TCHAR),
+									bufSize * sizeof(TCHAR),
+									bufSize * sizeof(TCHAR),
 									0,
 									NULL);
 
-	CustomAsynchClient client(pipe_path);
+	CustomAsynchClient client(pipePath);
 
 	client.run();
 
@@ -87,11 +89,11 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 	ConnectNamedPipe(server, nullptr);
 
 	DWORD bytes_written = 0;
-	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
-	WriteFile(server, write_buffer, 512 * sizeof(TCHAR), &bytes_written, nullptr);
+	const TCHAR write_buffer[bufSize] = L"Hello world)))";
+	WriteFile(server, write_buffer, bufSize * sizeof(TCHAR), &bytes_written, nullptr);
 
-	TCHAR* read_buffer = new TCHAR[sizeof(TCHAR) * 512];
-	DWORD bytes_read = 512 * sizeof(TCHAR);
+	TCHAR* read_buffer = new TCHAR[bufSize];
+	DWORD bytes_read = bufSize * sizeof(TCHAR);
 	client.read(read_buffer, bytes_read, nullptr);
 	
 	while (bytes_read != bytes_written)
@@ -103,8 +105,8 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 
 	EXPECT_EQ(true, true);
 	EXPECT_EQ(bytes_written, bytes_read);
-	EXPECT_EQ(bytes_written, sizeof(TCHAR) * 512);
-	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
+	EXPECT_EQ(bytes_written, sizeof(TCHAR) * bufSize);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
 
 	ConnectNamedPipe(server, nullptr);
 	EXPECT_EQ(GetLastError(), ERROR_PIPE_CONNECTED);
@@ -115,18 +117,19 @@ TEST(CustomAsynchClientTestCase, ReadTest)
 
 TEST(CustomAsynchClientTestCase, WriteTest)
 {
-	const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
+	const LPCTSTR pipePath = L"\\\\.\\pipe\\mynamedpipe";
+	const DWORD bufSize = 512;
 
 	HANDLE server = CreateNamedPipe(L"\\\\.\\pipe\\mynamedpipe",
 		PIPE_ACCESS_DUPLEX,
 		PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
 		PIPE_UNLIMITED_INSTANCES,
-		512 * sizeof(TCHAR),
-		512 * sizeof(TCHAR),
+		bufSize * sizeof(TCHAR),
+		bufSize * sizeof(TCHAR),
 		0,
 		NULL);
 
-	CustomAsynchClient client(pipe_path);
+	CustomAsynchClient client(pipePath);
 
 	client.run();
 
@@ -134,27 +137,22 @@ TEST(CustomAsynchClientTestCase, WriteTest)
 
 	ConnectNamedPipe(server, nullptr);
 
-	DWORD bytes_written = 0;
-	const TCHAR write_buffer[sizeof(TCHAR) * 512] = L"Hello world)))";
+	DWORD bytes_written = bufSize * sizeof(TCHAR);
+	const TCHAR write_buffer[bufSize] = L"Hello world)))";
 	client.write(write_buffer, bytes_written, nullptr);
 
-	while (bytes_written != sizeof(TCHAR) * 512)
-	{
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	}
-
-	std::cout << "HERE" << " " << bytes_written << std::endl;
-
-	TCHAR read_buffer[sizeof(TCHAR) * 512];
+	TCHAR read_buffer[bufSize];
 	DWORD bytes_read = 0;
-	ReadFile(server, read_buffer, sizeof(TCHAR) * 512, &bytes_read, nullptr);
+	EXPECT_EQ(ReadFile(server, read_buffer, sizeof(TCHAR) * 512, &bytes_read, nullptr), true);
 
 	client.stop();
 
 	EXPECT_EQ(true, true);
 	EXPECT_EQ(bytes_written, bytes_read);
-	EXPECT_EQ(bytes_written, sizeof(TCHAR) * 512);
-	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * 512), 0);
+	EXPECT_EQ(bytes_written, sizeof(TCHAR) * bufSize);
+	EXPECT_EQ(memcmp(read_buffer, write_buffer, sizeof(TCHAR) * bufSize), 0);
 
 	ConnectNamedPipe(server, nullptr);
 	EXPECT_EQ(GetLastError(), ERROR_PIPE_CONNECTED);
@@ -165,6 +163,7 @@ TEST(CustomAsynchClientTestCase, WriteTest)
 
 int main(int argc, char* argv[])
 {
+	/**
 	try
 	{
 		const LPCTSTR pipe_path = L"\\\\.\\pipe\\mynamedpipe";
@@ -204,11 +203,11 @@ int main(int argc, char* argv[])
 
 	system("pause");
 	return 0;
+	**/
 
-	/**
+	
 	::testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
-	**/
 }
 
 void TestToolkit::CopyReadInfo(const TCHAR* l_buffer_read, const DWORD l_bytes_read)
